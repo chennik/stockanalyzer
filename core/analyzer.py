@@ -330,30 +330,30 @@ def calculate_confidence(scores: List[IndicatorScore], final_score: float) -> fl
     return max(0.1, min(1.0, final_confidence))
 
 def generate_rating(score: float) -> Rating:
-    """Convert score to rating optimized for short-term trading opportunities."""
-    # Aggressive thresholds for active trading
-    if score >= 0.55:  # Even more aggressive for BUY signals
+    """Convert score to rating optimized based on historical validation results."""
+    # Adjusted thresholds based on backtest results showing 50% accuracy needs improvement
+    if score >= 0.70:  # More conservative for BUY (higher threshold)
         return "BUY"
-    elif score <= 0.35:  # Slightly more lenient for SELL
+    elif score <= 0.30:  # More conservative for SELL (lower threshold) 
         return "SELL"
     else:
         return "HOLD"
 
 def generate_trading_rating(score: float, momentum_score: float, volume_ratio: float, volatility_spike: bool = False, price_change_1d: float = 0) -> Rating:
-    """Generate ratings specifically for short-term trading with risk assessment."""
-    # High-risk high-reward opportunities (more inclusive)
-    if (score >= 0.4 and momentum_score >= 0.8 and (volume_ratio >= 1.2 or volatility_spike)) or \
-       (score >= 0.35 and volatility_spike and abs(price_change_1d) >= 2.5) or \
-       (momentum_score >= 1.5 and score >= 0.35) or \
-       (volume_ratio >= 2.0 and score >= 0.4):
+    """Generate ratings specifically for short-term trading with improved accuracy."""
+    # High-risk high-reward opportunities (more selective for accuracy)
+    if (score >= 0.5 and momentum_score >= 1.0 and volume_ratio >= 1.5 and volatility_spike) or \
+       (score >= 0.45 and volatility_spike and abs(price_change_1d) >= 3.0) or \
+       (momentum_score >= 2.0 and score >= 0.4 and volume_ratio >= 1.3) or \
+       (volume_ratio >= 2.5 and score >= 0.45):
         return "RISKY_BUY"
     
-    # Standard BUY signals (safer)
-    elif score >= 0.55 and momentum_score >= 1.5:
+    # Standard BUY signals (more selective threshold)
+    elif score >= 0.65 and momentum_score >= 1.5:
         return "BUY"
     
-    # SELL signals
-    elif score <= 0.35:
+    # SELL signals (more selective)
+    elif score <= 0.30 and momentum_score <= 0.5:
         return "SELL"
     
     # Default to HOLD
