@@ -3,6 +3,8 @@ from typing import List, Dict, Optional
 from .models import StockData, TechnicalIndicators, AnalysisResult, IndicatorScore, Rating
 from .indicators import calculate_rsi, calculate_sma, calculate_macd, identify_trend
 from .data_fetcher import fetch_stock_data, get_top_stocks_for_scanning
+from .multi_timeframe_analyzer import analyze_with_multi_timeframe
+from .results_database import log_prediction
 
 # Industry-standard scoring weights based on technical analysis best practices
 INDICATOR_WEIGHTS = {
@@ -614,3 +616,108 @@ def scan_top_buy_stocks(max_stocks: int = 10) -> List[Dict]:
                 continue
     
     return trading_opportunities[:max_stocks]
+
+def analyze_with_enhanced_accuracy(ticker: str, log_prediction_enabled: bool = True) -> AnalysisResult:
+    """
+    Enhanced analysis using multi-timeframe confluence for improved accuracy.
+    
+    This function combines:
+    1. Standard technical analysis
+    2. Multi-timeframe confluence scoring
+    3. Results logging for continuous improvement
+    
+    Args:
+        ticker: Stock symbol to analyze
+        log_prediction_enabled: Whether to log prediction to database
+        
+    Returns:
+        Enhanced AnalysisResult with multi-timeframe confidence boost
+    """
+    try:
+        # Get standard analysis
+        stock_data = fetch_stock_data(ticker, period="3mo")
+        if not stock_data:
+            raise ValueError(f"Could not fetch data for {ticker}")
+        
+        primary_analysis = analyze_technical(stock_data)
+        
+        # Get multi-timeframe analysis
+        multi_tf_result = analyze_with_multi_timeframe(ticker)
+        
+        if multi_tf_result and 'confluence_score' in multi_tf_result:
+            # Enhance confidence based on timeframe confluence
+            confluence_score = multi_tf_result['confluence_score']
+            confidence_boost = multi_tf_result['confidence_boost']
+            enhanced_rating = multi_tf_result['enhanced_rating']
+            
+            # Create enhanced analysis result
+            enhanced_confidence = min(1.0, primary_analysis.confidence + confidence_boost)
+            
+            # Use enhanced rating if confluence is strong
+            final_rating = enhanced_rating if confluence_score >= 0.6 else primary_analysis.rating
+            
+            # Combine reasoning
+            enhanced_reasoning = list(primary_analysis.reasoning)
+            if multi_tf_result.get('multi_tf_reasoning'):
+                enhanced_reasoning.extend(multi_tf_result['multi_tf_reasoning'])
+            
+            # Create enhanced result
+            enhanced_result = AnalysisResult(
+                ticker=primary_analysis.ticker,
+                rating=final_rating,
+                confidence=enhanced_confidence,
+                technical_indicators=primary_analysis.technical_indicators,
+                reasoning=enhanced_reasoning,
+                analysis_date=primary_analysis.analysis_date,
+                price_at_analysis=primary_analysis.price_at_analysis
+            )
+            
+            # Log prediction for tracking accuracy
+            if log_prediction_enabled:
+                try:
+                    prediction_data = {
+                        'ticker': ticker,
+                        'rating': final_rating,
+                        'confidence': enhanced_confidence,
+                        'current_price': stock_data.current_price,
+                        'multi_timeframe_score': confluence_score,
+                        'confluence_score': confluence_score,
+                        'reasoning': enhanced_reasoning,
+                        'source': 'enhanced_multi_timeframe'
+                    }
+                    log_prediction(prediction_data)
+                except Exception as e:
+                    print(f"Warning: Could not log prediction for {ticker}: {str(e)}")
+            
+            return enhanced_result
+        
+        else:
+            # Fallback to standard analysis if multi-timeframe fails
+            if log_prediction_enabled:
+                try:
+                    prediction_data = {
+                        'ticker': ticker,
+                        'rating': primary_analysis.rating,
+                        'confidence': primary_analysis.confidence,
+                        'current_price': stock_data.current_price,
+                        'reasoning': primary_analysis.reasoning,
+                        'source': 'standard_analysis'
+                    }
+                    log_prediction(prediction_data)
+                except:
+                    pass
+            
+            return primary_analysis
+    
+    except Exception as e:
+        print(f"Error in enhanced analysis for {ticker}: {str(e)}")
+        # Return minimal result
+        return AnalysisResult(
+            ticker=ticker,
+            rating="HOLD",
+            confidence=0.5,
+            technical_indicators=TechnicalIndicators(0, 0, 0, 0, 0, 0),
+            reasoning=[f"Analysis error: {str(e)}"],
+            analysis_date=datetime.now(),
+            price_at_analysis=0.0
+        )

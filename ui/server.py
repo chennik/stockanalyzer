@@ -6,7 +6,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
 from urllib.parse import urlparse, parse_qs
 from core.data_fetcher import fetch_stock_data, search_ticker_by_name, validate_ticker
-from core.analyzer import analyze_technical, scan_top_buy_stocks
+from core.analyzer import analyze_technical, scan_top_buy_stocks, analyze_with_enhanced_accuracy
 
 class StockAnalyzerHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -51,7 +51,7 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
                 self.send_error_response(404, f"No data found for ticker {ticker}")
                 return
             
-            analysis = analyze_technical(stock_data)
+            analysis = analyze_with_enhanced_accuracy(ticker)
             
             # Prepare response
             response = {
