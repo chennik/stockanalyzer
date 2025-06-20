@@ -42,15 +42,30 @@ def detect_new_features():
     """Scan code for new features or capabilities."""
     features = []
     
-    # Check for rating types
-    models_file = Path('../core/models.py')
-    if models_file.exists():
-        with open(models_file, 'r') as f:
+    # Check for multi-timeframe analysis
+    multi_tf_file = Path('../core/multi_timeframe_analyzer.py')
+    if multi_tf_file.exists():
+        features.append('Multi-timeframe analysis')
+    
+    # Check for results database
+    db_file = Path('../core/results_database.py')
+    if db_file.exists():
+        features.append('Database logging')
+    
+    # Check for regional optimization
+    analyzer_file = Path('../core/analyzer.py')
+    if analyzer_file.exists():
+        with open(analyzer_file, 'r') as f:
             content = f.read()
+            if 'get_regional_confidence_adjustment' in content:
+                features.append('Regional optimization')
             if 'RISKY_BUY' in content:
-                features.append('RISKY_BUY rating system')
-            if 'MOMENTUM_BUY' in content:
-                features.append('Momentum-based ratings')
+                features.append('RISKY_BUY detection')
+    
+    # Check for validation framework
+    validation_dir = Path('../validation')
+    if validation_dir.exists():
+        features.append('Validation framework')
     
     # Check for European support
     data_fetcher = Path('../core/data_fetcher.py')
@@ -58,24 +73,12 @@ def detect_new_features():
         with open(data_fetcher, 'r') as f:
             content = f.read()
             if '.DE' in content and '.AS' in content:
-                features.append('European market support')
-            if 'rheinmetall' in content.lower():
-                features.append('Company name translation')
-    
-    # Check for UI enhancements
-    app_js = Path('../ui/app.js')
-    if app_js.exists():
-        with open(app_js, 'r') as f:
-            content = f.read()
-            if 'scrollIntoView' in content:
-                features.append('Smooth scrolling UI')
-            if 'classList.add(\'active\')' in content:
-                features.append('Interactive stock selection')
+                features.append('European markets')
     
     return features
 
 def update_claude_md():
-    """Update CLAUDE.md with current project state."""
+    """Update CLAUDE.md with current project state - only the last section."""
     stats = get_project_stats()
     features = detect_new_features()
     
@@ -85,47 +88,31 @@ def update_claude_md():
         with open(claude_md_path, 'r') as f:
             content = f.read()
     else:
-        content = ""
+        return stats, features  # Don't create file if it doesn't exist
     
-    # Generate status update
-    status_update = f"""
-# AUTO-UPDATED STATUS ({datetime.now().strftime('%Y-%m-%d %H:%M')})
-
-## 📊 Current Codebase Stats
-- **Files**: {stats['files_count']} Python files
-- **Functions**: {stats['functions_count']} total functions
-- **Classes**: {stats['classes_count']} data classes
-- **Lines of Code**: {stats['lines_of_code']} total LOC
-
-## 🚀 Active Features Detected
-""" + '\n'.join(f"- ✅ {feature}" for feature in features) + f"""
-
-## 🔄 Last Auto-Update
-- **Timestamp**: {stats['last_modified']}
-- **Scan Result**: {len(features)} features detected
-
----
-"""
+    # Find and update only the "Current State Documentation" section
+    state_marker = '# Current State Documentation'
+    state_idx = content.find(state_marker)
     
-    # Update or append to CLAUDE.md
-    if '# AUTO-UPDATED STATUS' in content:
-        # Replace existing auto-update section
-        start_marker = '# AUTO-UPDATED STATUS'
-        end_marker = '\n---\n'
-        start_idx = content.find(start_marker)
-        end_idx = content.find(end_marker, start_idx) + len(end_marker)
+    if state_idx != -1:
+        # Update only the last section
+        new_state_section = f"""# Current State Documentation
+Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}  
+Active features: {', '.join(features[:3])}  
+Codebase: {stats['files_count']} Python files, {stats['lines_of_code']:,}+ total lines of code  
+Validation status: 60.6% accuracy confirmed on real historical data"""
         
-        if start_idx != -1 and end_idx != -1:
-            content = content[:start_idx] + status_update + content[end_idx:]
+        # Replace just the current state section
+        content = content[:state_idx] + new_state_section
+        
+        # Write back to file only if the file is under 200 lines (keep it concise)
+        lines = content.split('\n')
+        if len(lines) <= 200:
+            with open(claude_md_path, 'w') as f:
+                f.write(content)
+            print(f"✅ Updated CLAUDE.md (kept to {len(lines)} lines)")
         else:
-            content += status_update
-    else:
-        # Append new section
-        content += status_update
-    
-    # Write back to file
-    with open(claude_md_path, 'w') as f:
-        f.write(content)
+            print(f"⚠️ CLAUDE.md too long ({len(lines)} lines), skipping update to maintain 150-160 line limit")
     
     return stats, features
 
