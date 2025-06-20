@@ -15,6 +15,8 @@ class StockData:
     daily_change_percent: float
     market_cap: Optional[float] = None
     pe_ratio: Optional[float] = None
+    highs: Optional[List[float]] = None
+    lows: Optional[List[float]] = None
     
 @dataclass
 class TechnicalIndicators:

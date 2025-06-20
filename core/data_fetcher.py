@@ -22,6 +22,10 @@ def fetch_stock_data(ticker: str, period: str = "3mo", interval: str = "1d") -> 
         volumes = hist['Volume'].tolist()
         dates = [d.to_pydatetime() for d in hist.index]
         
+        # Extract high/low for institutional indicators
+        highs = hist['High'].tolist() if 'High' in hist.columns else prices
+        lows = hist['Low'].tolist() if 'Low' in hist.columns else prices
+        
         current_price = prices[-1] if prices else 0
         prev_close = prices[-2] if len(prices) > 1 else current_price
         daily_change = current_price - prev_close
@@ -36,7 +40,9 @@ def fetch_stock_data(ticker: str, period: str = "3mo", interval: str = "1d") -> 
             daily_change=daily_change,
             daily_change_percent=daily_change_percent,
             market_cap=info.get('marketCap'),
-            pe_ratio=info.get('trailingPE')
+            pe_ratio=info.get('trailingPE'),
+            highs=highs,
+            lows=lows
         )
         
     except Exception as e:

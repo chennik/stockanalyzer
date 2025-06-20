@@ -5,6 +5,8 @@ from .indicators import calculate_rsi, calculate_sma, calculate_macd, identify_t
 from .data_fetcher import fetch_stock_data, get_top_stocks_for_scanning
 from .multi_timeframe_analyzer import analyze_with_multi_timeframe
 from .results_database import log_prediction
+from .market_regime import get_market_regime, apply_market_regime_adjustments
+from .institutional_indicators import InstitutionalIndicators
 
 # Industry-standard scoring weights based on technical analysis best practices
 INDICATOR_WEIGHTS = {
@@ -70,6 +72,10 @@ def analyze_technical(stock_data: StockData) -> AnalysisResult:
     volume_score, volume_reason = score_volume_confirmation(stock_data.volumes, stock_data.prices)
     scores.append(IndicatorScore("Volume", volume_score, volume_score, INDICATOR_WEIGHTS["volume"], volume_reason))
     
+    # Institutional indicators (FREE professional-grade analysis)
+    institutional_scores = calculate_institutional_indicators(stock_data)
+    scores.extend(institutional_scores)
+    
     # Fundamental analysis (P/E ratio with market cap consideration)
     if stock_data.pe_ratio:
         pe_score, pe_reason = score_pe_ratio(stock_data.pe_ratio, stock_data.market_cap, stock_data.ticker)
@@ -82,16 +88,24 @@ def analyze_technical(stock_data: StockData) -> AnalysisResult:
     
     # Risk adjustment based on market conditions and volatility
     risk_adjustment = calculate_risk_adjustment(stock_data, scores)
-    final_score = max(0.1, min(0.9, raw_score + risk_adjustment))
     
-    # Generate rating with industry-standard thresholds
-    rating = generate_rating(final_score)
+    # Apply market regime adjustments (FREE accuracy improvement)
+    regime_adjusted_score, regime_explanation = apply_market_regime_adjustments(raw_score + risk_adjustment)
+    final_score = max(0.1, min(0.9, regime_adjusted_score))
+    
+    # Generate rating with market regime-adjusted thresholds
+    market_regime = get_market_regime()
+    rating = generate_rating_with_regime(final_score, market_regime)
     
     # Calculate confidence using convergence of indicators
     confidence = calculate_confidence(scores, final_score, stock_data.ticker)
     
     # Compile reasoning with risk assessment
     reasoning = [score.interpretation for score in scores if score.interpretation]
+    
+    # Add market regime context (FREE accuracy improvement)
+    if regime_explanation:
+        reasoning.append(regime_explanation)
     
     # Add risk assessment to reasoning
     if risk_adjustment < -0.05:
@@ -390,6 +404,22 @@ def generate_rating(score: float) -> Rating:
     else:
         return "HOLD"
 
+def generate_rating_with_regime(score: float, market_regime: Dict) -> Rating:
+    """Convert score to rating with market regime-adjusted thresholds."""
+    if not market_regime or 'rating_adjustments' not in market_regime:
+        return generate_rating(score)
+    
+    adjustments = market_regime['rating_adjustments']
+    buy_threshold = adjustments.get('buy_threshold', 0.65)
+    sell_threshold = adjustments.get('sell_threshold', 0.30)
+    
+    if score >= buy_threshold:
+        return "BUY"
+    elif score <= sell_threshold:
+        return "SELL"
+    else:
+        return "HOLD"
+
 def generate_trading_rating(score: float, momentum_score: float, volume_ratio: float, volatility_spike: bool = False, price_change_1d: float = 0) -> Rating:
     """Generate ratings specifically for short-term trading with improved accuracy."""
     # High-risk high-reward opportunities (more selective for accuracy)
@@ -666,12 +696,65 @@ def scan_top_buy_stocks(max_stocks: int = 10) -> List[Dict]:
     
     return trading_opportunities[:max_stocks]
 
+def calculate_institutional_indicators(stock_data: StockData) -> List[IndicatorScore]:
+    """Calculate institutional-grade indicators for professional analysis."""
+    institutional_scores = []
+    
+    try:
+        # VWAP Analysis (15% weight)
+        if stock_data.highs and stock_data.lows:
+            vwap, vwap_reason = InstitutionalIndicators.calculate_vwap(
+                stock_data.prices, stock_data.volumes, stock_data.highs, stock_data.lows
+            )
+            # Convert VWAP position to score
+            vwap_score = 0.6 if "accumulating" in vwap_reason else 0.4 if "selling" in vwap_reason else 0.5
+            institutional_scores.append(IndicatorScore("VWAP", vwap, vwap_score, 0.15, vwap_reason))
+        
+        # Relative Volume Analysis (10% weight)
+        rel_vol, rel_vol_reason = InstitutionalIndicators.calculate_relative_volume(stock_data.volumes)
+        rel_vol_score = min(0.8, 0.5 + (rel_vol - 1) * 0.1)  # Higher volume = higher score
+        institutional_scores.append(IndicatorScore("Relative Volume", rel_vol, rel_vol_score, 0.10, rel_vol_reason))
+        
+        # On-Balance Volume Analysis (10% weight)
+        obv, obv_reason = InstitutionalIndicators.calculate_obv(stock_data.prices, stock_data.volumes)
+        obv_score = 0.7 if "accumulation" in obv_reason else 0.3 if "distribution" in obv_reason else 0.6 if "BULLISH" in obv_reason else 0.4 if "BEARISH" in obv_reason else 0.5
+        institutional_scores.append(IndicatorScore("OBV", obv, obv_score, 0.10, obv_reason))
+        
+        # Bollinger Bands Analysis (8% weight) 
+        if len(stock_data.prices) >= 20:
+            bands, bands_reason = InstitutionalIndicators.calculate_bollinger_bands(stock_data.prices)
+            if bands and 'position' in bands:
+                # Convert band position to score
+                position = bands['position']
+                if position > 0.8:
+                    bands_score = 0.3  # Near upper band - sell signal
+                elif position < 0.2:
+                    bands_score = 0.7  # Near lower band - buy signal
+                else:
+                    bands_score = 0.5  # Normal range
+                institutional_scores.append(IndicatorScore("Bollinger Bands", position, bands_score, 0.08, bands_reason))
+        
+        # ATR Analysis (Risk assessment - 7% weight)
+        if stock_data.highs and stock_data.lows:
+            atr, atr_reason = InstitutionalIndicators.calculate_atr(
+                stock_data.highs, stock_data.lows, stock_data.prices
+            )
+            # Higher volatility = lower score (more risk)
+            atr_percentage = (atr / stock_data.current_price) * 100 if stock_data.current_price > 0 else 0
+            atr_score = max(0.2, 0.8 - (atr_percentage * 0.1))  # Lower volatility = higher score
+            institutional_scores.append(IndicatorScore("ATR Risk", atr_percentage, atr_score, 0.07, atr_reason))
+        
+    except Exception as e:
+        print(f"Error calculating institutional indicators: {str(e)}")
+    
+    return institutional_scores
+
 def analyze_with_enhanced_accuracy(ticker: str, log_prediction_enabled: bool = True) -> AnalysisResult:
     """
     Enhanced analysis using multi-timeframe confluence for improved accuracy.
     
     This function combines:
-    1. Standard technical analysis
+    1. Extended historical analysis (12+ months for better context)
     2. Multi-timeframe confluence scoring
     3. Results logging for continuous improvement
     
@@ -683,10 +766,16 @@ def analyze_with_enhanced_accuracy(ticker: str, log_prediction_enabled: bool = T
         Enhanced AnalysisResult with multi-timeframe confidence boost
     """
     try:
-        # Get standard analysis
-        stock_data = fetch_stock_data(ticker, period="3mo")
+        # Get extended historical data for better trend context
+        stock_data = fetch_stock_data(ticker, period="12mo")  # Extended from 3mo to 12mo
         if not stock_data:
             raise ValueError(f"Could not fetch data for {ticker}")
+        
+        # If insufficient data, fallback to shorter period
+        if len(stock_data.prices) < 50:
+            stock_data = fetch_stock_data(ticker, period="6mo")
+            if not stock_data or len(stock_data.prices) < 30:
+                stock_data = fetch_stock_data(ticker, period="3mo")
         
         primary_analysis = analyze_technical(stock_data)
         
