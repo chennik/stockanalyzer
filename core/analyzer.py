@@ -72,7 +72,7 @@ def analyze_technical(stock_data: StockData) -> AnalysisResult:
     
     # Fundamental analysis (P/E ratio with market cap consideration)
     if stock_data.pe_ratio:
-        pe_score, pe_reason = score_pe_ratio(stock_data.pe_ratio, stock_data.market_cap)
+        pe_score, pe_reason = score_pe_ratio(stock_data.pe_ratio, stock_data.market_cap, stock_data.ticker)
         scores.append(IndicatorScore("Valuation", stock_data.pe_ratio, pe_score, INDICATOR_WEIGHTS["fundamentals"], pe_reason))
     
     # Calculate weighted score
@@ -88,7 +88,7 @@ def analyze_technical(stock_data: StockData) -> AnalysisResult:
     rating = generate_rating(final_score)
     
     # Calculate confidence using convergence of indicators
-    confidence = calculate_confidence(scores, final_score)
+    confidence = calculate_confidence(scores, final_score, stock_data.ticker)
     
     # Compile reasoning with risk assessment
     reasoning = [score.interpretation for score in scores if score.interpretation]
@@ -204,8 +204,8 @@ def score_macd(histogram: float, macd: float, signal: float) -> tuple[float, str
     
     return score, reason
 
-def score_pe_ratio(pe_ratio: float, market_cap: Optional[float] = None) -> tuple[float, str]:
-    """Score P/E ratio using industry-standard valuation metrics."""
+def score_pe_ratio(pe_ratio: float, market_cap: Optional[float] = None, ticker: str = "") -> tuple[float, str]:
+    """Score P/E ratio using industry-standard valuation metrics with regional adjustments."""
     # Determine stock type based on market cap (if available)
     if market_cap and market_cap > 100_000_000_000:  # Large cap (>$100B)
         pe_bands = PE_BANDS["defensive"]
@@ -217,21 +217,33 @@ def score_pe_ratio(pe_ratio: float, market_cap: Optional[float] = None) -> tuple
         pe_bands = PE_BANDS["value"]  # Small cap or unknown
         stock_type = "small-cap/value"
     
+    # Regional P/E adjustments (European stocks often trade at different multiples)
+    regional_multiplier = 1.0
+    if ticker and any(suffix in ticker.upper() for suffix in ['.DE', '.AS', '.PA', '.SW', '.MI', '.MC', '.L']):
+        # European stocks often trade at lower P/E ratios, adjust thresholds
+        regional_multiplier = 0.8  # 20% more lenient on European P/E ratios
+        stock_type += " (European)"
+    
     # Handle negative or zero P/E
     if pe_ratio <= 0:
         return 0.3, f"Negative/Zero P/E ratio indicates no earnings - higher risk"
     
-    # Score based on P/E bands
-    if pe_ratio < pe_bands["low"]:
+    # Adjust P/E thresholds for regional markets
+    adjusted_pe_bands = {
+        key: value * regional_multiplier for key, value in pe_bands.items()
+    }
+    
+    # Score based on adjusted P/E bands
+    if pe_ratio < adjusted_pe_bands["low"]:
         score = 0.75
         reason = f"P/E ratio {pe_ratio:.1f} suggests potential undervaluation for {stock_type} stock"
-    elif pe_ratio < pe_bands["fair"]:
+    elif pe_ratio < adjusted_pe_bands["fair"]:
         score = 0.6
         reason = f"P/E ratio {pe_ratio:.1f} indicates attractive valuation for {stock_type} stock"
-    elif pe_ratio < pe_bands["high"]:
+    elif pe_ratio < adjusted_pe_bands["high"]:
         score = 0.5
         reason = f"P/E ratio {pe_ratio:.1f} indicates fair valuation for {stock_type} stock"
-    elif pe_ratio < pe_bands["high"] * 1.5:  # 50% above high band
+    elif pe_ratio < adjusted_pe_bands["high"] * 1.5:  # 50% above high band
         score = 0.35
         reason = f"P/E ratio {pe_ratio:.1f} suggests overvaluation for {stock_type} stock"
     else:
@@ -308,8 +320,8 @@ def calculate_risk_adjustment(stock_data: StockData, scores: List[IndicatorScore
     
     return volatility_adjustment + market_cap_adjustment
 
-def calculate_confidence(scores: List[IndicatorScore], final_score: float) -> float:
-    """Calculate confidence based on indicator convergence."""
+def calculate_confidence(scores: List[IndicatorScore], final_score: float, ticker: str = "") -> float:
+    """Calculate confidence based on indicator convergence with regional adjustments."""
     if not scores:
         return 0.5
     
@@ -327,9 +339,46 @@ def calculate_confidence(scores: List[IndicatorScore], final_score: float) -> fl
     # Distance from neutral (0.5) also affects confidence
     directional_confidence = abs(final_score - 0.5) * 2
     
+    # Regional market adjustments
+    regional_adjustment = get_regional_confidence_adjustment(ticker)
+    
     # Combined confidence (weighted average)
-    final_confidence = (convergence_confidence * 0.6) + (directional_confidence * 0.4)
+    base_confidence = (convergence_confidence * 0.6) + (directional_confidence * 0.4)
+    final_confidence = base_confidence + regional_adjustment
+    
     return max(0.1, min(1.0, final_confidence))
+
+def get_regional_confidence_adjustment(ticker: str) -> float:
+    """Adjust confidence based on regional market characteristics."""
+    if not ticker:
+        return 0
+    
+    ticker_upper = ticker.upper()
+    
+    # European markets - generally more stable, different trading patterns
+    if any(suffix in ticker_upper for suffix in ['.DE', '.AS', '.PA', '.SW', '.MI', '.MC', '.L']):
+        # European stocks tend to have more stable patterns, boost confidence slightly
+        base_boost = 0.05
+        
+        # German stocks (typically well-regulated, good data quality)
+        if '.DE' in ticker_upper:
+            return base_boost + 0.03
+        
+        # Dutch/Swiss stocks (stable markets)
+        elif '.AS' in ticker_upper or '.SW' in ticker_upper:
+            return base_boost + 0.02
+        
+        # Other European markets
+        else:
+            return base_boost
+    
+    # Asian markets - can be more volatile, more conservative
+    elif any(suffix in ticker_upper for suffix in ['.T', '.HK', '.SS', '.SZ']):
+        return -0.02
+    
+    # US markets (our baseline)
+    else:
+        return 0
 
 def generate_rating(score: float) -> Rating:
     """Convert score to rating optimized based on historical validation results."""
