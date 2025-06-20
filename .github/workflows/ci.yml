@@ -1,0 +1,102 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, "3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov
+
+    - name: Test basic imports
+      run: |
+        python -c "from core.analyzer import analyze_technical"
+        python -c "from core.data_fetcher import fetch_stock_data"
+        python -c "from core.models import StockData"
+
+    - name: Test API endpoints
+      run: |
+        cd ui
+        python server.py &
+        sleep 5
+        curl -f http://localhost:8000/ || exit 1
+        curl -f http://localhost:8000/api/analyze?query=AAPL || exit 1
+        pkill -f "python server.py"
+
+    - name: Update documentation
+      run: |
+        python scripts/update_docs.py
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build Docker image
+      run: |
+        docker build -t stock-forecaster:latest .
+    
+    - name: Test Docker container
+      run: |
+        docker run -d -p 8000:8000 --name test-container stock-forecaster:latest
+        sleep 10
+        curl -f http://localhost:8000/ || exit 1
+        docker stop test-container
+        docker rm test-container
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run security scan
+      uses: pypa/gh-action-pip-audit@v1.0.8
+      with:
+        inputs: requirements.txt
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, docker]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to production
+      run: |
+        echo "🚀 Ready for production deployment"
+        echo "Consider deploying to:"
+        echo "- Heroku: git push heroku main"
+        echo "- Railway: railway up"
+        echo "- DigitalOcean App Platform"
+        echo "- AWS ECS/Fargate"
