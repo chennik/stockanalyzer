@@ -16,8 +16,44 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
             self.handle_analyze()
         elif url.path == '/api/top-stocks':
             self.handle_top_stocks()
+        elif url.path == '/' or url.path == '/index.html':
+            # Serve the main UI
+            self.serve_index()
+        elif url.path == '/app.js':
+            # Serve the JavaScript file
+            self.serve_static_file('app.js', 'application/javascript')
         else:
             super().do_GET()
+    
+    def serve_static_file(self, filename, content_type):
+        """Serve static files like CSS, JS, etc."""
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            self.send_response(200)
+            self.send_header('Content-Type', f'{content_type}; charset=utf-8')
+            self.send_header('Content-Length', str(len(content.encode('utf-8'))))
+            self.end_headers()
+            self.wfile.write(content.encode('utf-8'))
+            
+        except FileNotFoundError:
+            self.send_error(404, f"{filename} not found")
+    
+    def serve_index(self):
+        """Serve the main index.html file."""
+        try:
+            with open('index.html', 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(content.encode('utf-8'))))
+            self.end_headers()
+            self.wfile.write(content.encode('utf-8'))
+            
+        except FileNotFoundError:
+            self.send_error(404, "index.html not found")
     
     def handle_analyze(self):
         try:
@@ -53,7 +89,46 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
             
             analysis = analyze_with_enhanced_accuracy(ticker)
             
-            # Prepare response
+            # Get additional forecast data
+            algo_forecast = None
+            news_sentiment = None
+            
+            try:
+                # Get algorithmic forecast
+                from core.algo_forecast import AlgorithmicForecast
+                algo_forecaster = AlgorithmicForecast()
+                algo_forecast_result = algo_forecaster.predict_algorithmic_movements(stock_data)
+                
+                algo_forecast = {
+                    'forecast_direction': algo_forecast_result.forecast_direction,
+                    'confidence': algo_forecast_result.confidence,
+                    'algo_triggers': algo_forecast_result.algo_triggers,
+                    'reasoning': algo_forecast_result.reasoning,
+                    'risk_factors': algo_forecast_result.risk_factors,
+                    'pattern_scores': algo_forecast_result.pattern_scores
+                }
+            except Exception as e:
+                print(f"Algorithmic forecast failed: {e}")
+            
+            try:
+                # Get news sentiment (if available)
+                from core.news_sentiment_analyzer import NewsSentimentForecaster
+                news_forecaster = NewsSentimentForecaster()
+                news_result = news_forecaster.analyze_news_sentiment_forecast(ticker, days_lookback=30)
+                
+                news_sentiment = {
+                    'sentiment_score': news_result.sentiment_score,
+                    'manipulation_risk': news_result.manipulation_risk,
+                    'news_volume': news_result.news_volume,
+                    'sentiment_trend': news_result.sentiment_trend,
+                    'price_correlation': news_result.price_correlation,
+                    'pump_dump_probability': news_result.pump_dump_probability,
+                    'analysis_summary': news_result.analysis_summary
+                }
+            except Exception as e:
+                print(f"News sentiment analysis failed: {e}")
+            
+            # Prepare enhanced response
             response = {
                 'ticker': analysis.ticker,
                 'rating': analysis.rating,
@@ -73,7 +148,10 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
                 'price_history': {
                     'dates': [d.isoformat() for d in stock_data.dates[-30:]],
                     'prices': stock_data.prices[-30:]
-                }
+                },
+                'algo_forecast': algo_forecast,
+                'news_sentiment': news_sentiment,
+                'forecast_enabled': True
             }
             
             self.send_json_response(response)
