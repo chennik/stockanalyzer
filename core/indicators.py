@@ -8,16 +8,37 @@ def calculate_sma(prices: List[float], period: int) -> float:
     return sum(prices[-period:]) / period
 
 def calculate_rsi(prices: List[float], period: int = 14) -> float:
-    """Calculate Relative Strength Index (RSI)."""
+    """
+    Calculate Relative Strength Index (RSI) using Wilder's Smoothed Moving Average.
+    
+    This implementation follows J. Welles Wilder Jr.'s original RSI formula from
+    "New Concepts in Technical Trading Systems" (1978), ensuring compatibility
+    with professional platforms like Bloomberg, Reuters, and TradingView.
+    
+    Args:
+        prices: List of closing prices
+        period: RSI period (default 14, industry standard)
+        
+    Returns:
+        RSI value between 0 and 100
+    """
     if len(prices) < period + 1:
         return 50.0
     
+    # Calculate price changes
     price_changes = [prices[i] - prices[i-1] for i in range(1, len(prices))]
     gains = [change if change > 0 else 0 for change in price_changes]
     losses = [-change if change < 0 else 0 for change in price_changes]
     
-    avg_gain = sum(gains[-period:]) / period
-    avg_loss = sum(losses[-period:]) / period
+    # Initial simple moving average for first period (Wilder's method)
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    
+    # Apply Wilder's smoothing for subsequent periods
+    # Formula: newval = (prevval * (n-1) + newdata) / n
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
     
     if avg_loss == 0:
         return 100.0

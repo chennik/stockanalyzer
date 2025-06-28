@@ -87,6 +87,7 @@ class MultiTimeframeAnalyzer:
         if len(stock_data.prices) < 20:
             return {}
         
+        # Using Wilder's SMMA RSI for professional compliance
         rsi = calculate_rsi(stock_data.prices)
         sma_20 = calculate_sma(stock_data.prices, 20)
         sma_50 = calculate_sma(stock_data.prices, 50)

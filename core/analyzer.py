@@ -133,7 +133,37 @@ def analyze_technical(stock_data: StockData) -> AnalysisResult:
     )
 
 def score_rsi(rsi: float) -> tuple[float, str]:
-    """Score RSI indicator using industry-standard zones."""
+    """
+    Score RSI indicator using industry-standard zones based on Wilder's RSI.
+    
+    This function interprets RSI values calculated using Wilder's Smoothed Moving Average
+    method (as implemented in calculate_rsi) and converts them to actionable trading scores.
+    
+    RSI Zones and Their Interpretation:
+    - 0-20: Extremely oversold (panic selling, high reversal probability)
+    - 20-30: Oversold (selling exhausted, accumulation zone)
+    - 30-40: Approaching oversold (cooling off, potential entry)
+    - 40-60: Neutral zone (balanced market, no directional bias)
+    - 60-70: Approaching overbought (heating up, caution advised)
+    - 70-80: Overbought (buying exhausted, distribution zone)
+    - 80-100: Extremely overbought (euphoria, high reversal probability)
+    
+    Scoring Logic:
+    - Higher scores (0.7-0.9) indicate BUY opportunities (oversold conditions)
+    - Lower scores (0.1-0.3) indicate SELL signals (overbought conditions)
+    - Mid-range scores (0.4-0.6) suggest HOLD (neutral market state)
+    
+    Historical Accuracy:
+    - RSI < 20 shows 70%+ probability of short-term reversal upward
+    - RSI > 80 shows 75%+ probability of near-term pullback
+    - RSI 30-70 requires additional indicators for direction
+    
+    Args:
+        rsi: RSI value between 0-100 calculated using Wilder's method
+        
+    Returns:
+        tuple: (score, reasoning) where score is 0.0-1.0 and reasoning explains the signal
+    """
     if rsi < RSI_LEVELS["extremely_oversold"]:
         return 0.9, f"RSI {rsi:.1f} indicates extremely oversold - strong buy signal. WHY: When RSI drops below 20, it means sellers have exhausted themselves and the stock is due for a bounce. Historical data shows 70%+ probability of short-term reversal from these levels"
     elif rsi < RSI_LEVELS["oversold"]:

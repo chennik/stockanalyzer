@@ -67,7 +67,7 @@ class TechnicalValidator:
             return {"error": str(e)}
     
     def _calculate_rsi_manual(self, prices: np.array, period: int = 14) -> float:
-        """Manual RSI calculation to verify our implementation."""
+        """Manual RSI calculation using Wilder's SMMA to verify our implementation."""
         if len(prices) < period + 1:
             return 50.0
         
@@ -78,9 +78,14 @@ class TechnicalValidator:
         gains = np.where(deltas > 0, deltas, 0)
         losses = np.where(deltas < 0, -deltas, 0)
         
-        # Calculate average gains and losses
-        avg_gain = np.mean(gains[-period:])
-        avg_loss = np.mean(losses[-period:])
+        # Initial simple moving average for first period
+        avg_gain = np.mean(gains[:period])
+        avg_loss = np.mean(losses[:period])
+        
+        # Apply Wilder's smoothing for subsequent periods
+        for i in range(period, len(gains)):
+            avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+            avg_loss = (avg_loss * (period - 1) + losses[i]) / period
         
         if avg_loss == 0:
             return 100.0

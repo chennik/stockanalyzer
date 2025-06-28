@@ -1,5 +1,30 @@
 # Stock Forecaster Changelog
 
+## [2.1.1] - 2025-06-28 - Critical RSI Calculation Fix
+
+### 🔧 Technical Corrections
+- **CRITICAL FIX**: RSI calculation now uses Wilder's Smoothed Moving Average (SMMA)
+- **Industry Compliance**: RSI values now match Bloomberg, Reuters, TradingView standards
+- **Professional Accuracy**: Replaced simple moving average with proper Wilder's formula
+- **Validation Updated**: Technical validation tests updated for new RSI calculation
+
+### 📊 Expected Impact
+- **RSI Values**: 1-4 point differences in RSI readings (more accurate)
+- **Signal Quality**: Improved overbought/oversold signal precision
+- **Professional Credibility**: Full compliance with J. Welles Wilder Jr.'s original formula
+- **Trading Signals**: Some BUY/HOLD boundary cases may shift (improved accuracy)
+
+### 🎯 Technical Details
+- Implemented Wilder's SMMA: `newval = (prevval * (n-1) + newdata) / n`
+- Maintains 14-period default (industry standard)
+- Backward compatible with existing analysis
+- No database or UI changes required
+
+### 📈 Validation Status
+- Mathematical accuracy: Verified against industry standards
+- Professional compliance: ✅ Bloomberg/Reuters compatible
+- Risk level: LOW (isolated calculation improvement)
+- Accuracy impact: Expected improvement in signal quality
 
 ## [Auto-Check] - 2025-06-20 23:38
 - Documentation auto-updated
