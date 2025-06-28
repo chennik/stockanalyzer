@@ -6,6 +6,9 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
     const input = document.getElementById('tickerInput').value.trim();
     if (!input) return;
     
+    // Get selected quality level
+    const qualityLevel = document.querySelector('input[name="quality"]:checked').value;
+    
     // UI state
     document.getElementById('errorMsg').style.display = 'none';
     document.getElementById('loading').style.display = 'block';
@@ -13,11 +16,13 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
     document.getElementById('analyzeBtn').disabled = true;
     
     try {
-        console.log('Fetching analysis for:', input);
-        const response = await fetch(`/api/analyze?query=${encodeURIComponent(input)}`);
+        console.log('Fetching analysis for:', input, 'at quality level:', qualityLevel);
+        
+        // Always use professional analysis API with quality parameter
+        const response = await fetch(`/api/analyze-professional?query=${encodeURIComponent(input)}&quality=${qualityLevel}`);
         const data = await response.json();
         
-        console.log('API response received:', data);
+        console.log('Professional API response received:', data);
         
         if (!response.ok) {
             throw new Error(data.error || 'Analysis failed');
@@ -43,10 +48,20 @@ function displayResults(data) {
     document.getElementById('confidence').textContent = `${(data.confidence * 100).toFixed(0)}%`;
     
     // Current stats
-    document.getElementById('currentPrice').textContent = `$${data.current_price.toFixed(2)}`;
-    const changeColor = data.daily_change >= 0 ? 'green' : 'red';
+    const currentPrice = data.price_at_analysis || data.current_price;
+    document.getElementById('currentPrice').textContent = `$${currentPrice.toFixed(2)}`;
+    
+    // Calculate daily change if not provided
+    let dailyChange = 0;
+    let dailyChangePercent = 0;
+    if (data.daily_change !== undefined) {
+        dailyChange = data.daily_change;
+        dailyChangePercent = data.daily_change_percent;
+    }
+    
+    const changeColor = dailyChange >= 0 ? 'green' : 'red';
     document.getElementById('dailyChange').innerHTML = 
-        `<span style="color: ${changeColor}">${data.daily_change >= 0 ? '+' : ''}${data.daily_change.toFixed(2)} (${data.daily_change_percent.toFixed(2)}%)</span>`;
+        `<span style="color: ${changeColor}">${dailyChange >= 0 ? '+' : ''}${dailyChange.toFixed(2)} (${dailyChangePercent.toFixed(2)}%)</span>`;
     
     // Indicators
     document.getElementById('rsi').textContent = data.indicators.rsi.toFixed(1);
@@ -62,7 +77,14 @@ function displayResults(data) {
     });
     
     // Update chart
-    updateChart(data.price_history);
+    if (data.price_history) {
+        updateChart(data.price_history);
+    }
+    
+    // Display professional analysis if available
+    if (data.analysis_type === 'professional') {
+        displayProfessionalAnalysis(data);
+    }
     
     // Show results
     document.getElementById('results').style.display = 'block';
@@ -229,25 +251,63 @@ function showError(message) {
 }
 
 // Load top stocks on page load
-async function loadTopStocks() {
+// Global variable to track risk/reward filter
+let currentRiskRewardFilter = 1.0;
+
+async function loadTopStocks(applyRiskReward = false) {
     try {
-        const response = await fetch('/api/top-stocks');
+        // Get selected quality level for top stocks
+        const qualityLevel = document.querySelector('input[name="topStocksQuality"]:checked')?.value || 'research';
+        const riskRewardThreshold = applyRiskReward ? currentRiskRewardFilter : 0;
+        
+        document.getElementById('topStocksLoading').style.display = 'block';
+        document.getElementById('topStocksGrid').style.display = 'none';
+        
+        let loadingText = `Scanning US & European markets for ${qualityLevel} quality opportunities...`;
+        if (applyRiskReward) {
+            loadingText = `Finding opportunities with R:R ≥ 1:${riskRewardThreshold} in US & European markets...`;
+        }
+        document.getElementById('topStocksLoading').textContent = loadingText;
+        
+        const response = await fetch(`/api/top-stocks?quality=${qualityLevel}&min_rr=${riskRewardThreshold}`);
         const data = await response.json();
         
         if (!response.ok) {
             throw new Error(data.error || 'Failed to load top stocks');
         }
         
-        displayTopStocks(data.stocks);
+        displayTopStocks(data.stocks, data.quality_level, data.scan_method);
     } catch (error) {
         console.error('Error loading top stocks:', error);
         document.getElementById('topStocksLoading').textContent = 'Failed to load top stocks';
     }
 }
 
-function displayTopStocks(stocks) {
+function displayTopStocks(stocks, qualityLevel, scanMethod) {
     const grid = document.getElementById('topStocksGrid');
     grid.innerHTML = '';
+    
+    // Add quality level info header
+    if (qualityLevel && scanMethod) {
+        const headerInfo = document.createElement('div');
+        headerInfo.style.cssText = 'text-align: center; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 0.9rem; color: #666;';
+        headerInfo.innerHTML = `
+            Markets: <strong>US & Europe</strong> | 
+            Quality Level: <strong>${qualityLevel.toUpperCase()}</strong> | 
+            Found: <strong>${stocks.length}</strong> opportunities
+        `;
+        grid.appendChild(headerInfo);
+    }
+    
+    if (stocks.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.style.cssText = 'text-align: center; padding: 40px; color: #666; font-style: italic;';
+        noResults.textContent = `No stocks found meeting ${qualityLevel} quality standards. Try a lower quality level.`;
+        grid.appendChild(noResults);
+        document.getElementById('topStocksLoading').style.display = 'none';
+        document.getElementById('topStocksGrid').style.display = 'block';
+        return;
+    }
     
     stocks.forEach((stock, index) => {
         const item = document.createElement('div');
@@ -259,11 +319,33 @@ function displayTopStocks(stocks) {
                      stock.rating === 'BUY' ? '🟢' : 
                      stock.rating === 'HOLD' ? '🟡' : '🔴';
         
+        // All quality levels now use professional analysis format
+        const qualityInfo = stock.quality_level;
+        const riskScore = stock.risk_score || 0;
+        const riskRewardRatio = stock.risk_reward_ratio || 0;
+        
+        // Show consistent professional format for all quality levels
+        let additionalInfo = `
+            <div class="stock-quality">Quality: ${qualityInfo || 'EXPERIMENTAL'}</div>
+            <div class="stock-risk">Risk: ${(riskScore * 100).toFixed(0)}%</div>
+        `;
+        
+        // Add risk/reward ratio if available
+        if (riskRewardRatio > 0) {
+            const rrColor = riskRewardRatio >= 2 ? '#28a745' : riskRewardRatio >= 1.5 ? '#ffc107' : '#dc3545';
+            additionalInfo += `<div class="stock-rr" style="color: ${rrColor}; font-weight: 500;">R:R 1:${riskRewardRatio.toFixed(1)}</div>`;
+            
+            // Add warning if below threshold
+            if (stock.below_rr_threshold) {
+                additionalInfo += `<div style="color: #ff6b6b; font-size: 0.75rem; font-style: italic;">Below R:R filter</div>`;
+            }
+        }
+        
         item.innerHTML = `
             <h4>${emoji} ${stock.ticker}</h4>
             <div class="stock-rating ${stock.rating}">${stock.rating}</div>
             <div class="stock-confidence">Confidence: ${(stock.confidence * 100).toFixed(0)}%</div>
-            <div class="stock-change">${stock.daily_change_percent >= 0 ? '+' : ''}${stock.daily_change_percent.toFixed(1)}%</div>
+            ${additionalInfo}
         `;
         
         item.onclick = () => {
@@ -548,11 +630,250 @@ function generateKeyInsights(data) {
     return insights.slice(0, 6); // Limit to 6 insights
 }
 
+function displayProfessionalAnalysis(data) {
+    console.log('Displaying professional analysis:', data);
+    
+    // Remove existing professional analysis section if present
+    const existingSection = document.querySelector('.professional-analysis');
+    if (existingSection) {
+        existingSection.remove();
+    }
+    
+    // Create professional analysis section
+    const professionalSection = document.createElement('div');
+    professionalSection.className = 'professional-analysis';
+    
+    // Quality Status
+    const qualityStatus = `
+        <div class="quality-status">
+            <div>
+                <h3>Quality Level: <span class="quality-level ${data.quality_assurance.quality_level}">${data.quality_assurance.quality_level}</span></h3>
+                <p>Statistical Confidence: ${(data.quality_assurance.statistical_confidence * 100).toFixed(1)}%</p>
+            </div>
+            <div>
+                <h4>Standards: ${data.meets_standards ? '✅ PASSED' : '❌ FAILED'}</h4>
+                <p>Target: ${data.quality_level.toUpperCase()}</p>
+            </div>
+        </div>
+    `;
+    
+    // Risk Management Section
+    const riskManagement = `
+        <h3>💰 Risk Management</h3>
+        <div class="risk-management">
+            <div class="risk-metric">
+                <div class="risk-metric-label">Stop Loss</div>
+                <div class="risk-metric-value">$${data.risk_management.stop_loss_price.toFixed(2)}</div>
+                <div class="risk-metric-label">${data.risk_management.stop_loss_percent.toFixed(1)}% risk</div>
+            </div>
+            <div class="risk-metric">
+                <div class="risk-metric-label">Take Profit</div>
+                <div class="risk-metric-value">$${data.risk_management.take_profit_price.toFixed(2)}</div>
+                <div class="risk-metric-label">${data.risk_management.risk_reward_ratio.toFixed(1)}:1 R/R</div>
+            </div>
+            <div class="risk-metric">
+                <div class="risk-metric-label">Position Size</div>
+                <div class="risk-metric-value">${data.risk_management.position_size_percent.toFixed(1)}%</div>
+                <div class="risk-metric-label">of portfolio</div>
+            </div>
+            <div class="risk-metric">
+                <div class="risk-metric-label">Time Horizon</div>
+                <div class="risk-metric-value">${data.risk_management.time_horizon_days}</div>
+                <div class="risk-metric-label">days</div>
+            </div>
+        </div>
+    `;
+    
+    // Entry/Exit Criteria with Profit Calculator
+    const entryPrice = data.entry_exit_criteria.entry_price;
+    const stopLossPrice = data.entry_exit_criteria.stop_loss_price;
+    const takeProfitPrice = data.entry_exit_criteria.take_profit_price;
+    const trailingStopPercent = data.entry_exit_criteria.trailing_stop_percent;
+    
+    // Calculate potential profit/loss percentages
+    const potentialProfitPercent = ((takeProfitPrice - entryPrice) / entryPrice * 100);
+    const potentialLossPercent = ((stopLossPrice - entryPrice) / entryPrice * 100);
+    
+    const entryExitCriteria = `
+        <div class="entry-exit-criteria">
+            <h3>🎯 Entry/Exit Criteria</h3>
+            <div class="entry-exit-grid">
+                <div class="price-level">
+                    <div class="price-level-label">Entry Price</div>
+                    <div class="price-level-value">$${entryPrice.toFixed(2)}</div>
+                </div>
+                <div class="price-level">
+                    <div class="price-level-label">Stop Loss</div>
+                    <div class="price-level-value">$${stopLossPrice.toFixed(2)}</div>
+                    <div class="price-level-percent" style="color: #dc3545">${potentialLossPercent.toFixed(1)}%</div>
+                </div>
+                <div class="price-level">
+                    <div class="price-level-label">Take Profit</div>
+                    <div class="price-level-value">$${takeProfitPrice.toFixed(2)}</div>
+                    <div class="price-level-percent" style="color: #28a745">+${potentialProfitPercent.toFixed(1)}%</div>
+                </div>
+                <div class="price-level">
+                    <div class="price-level-label">Trailing Stop</div>
+                    <div class="price-level-value">${trailingStopPercent.toFixed(1)}%</div>
+                </div>
+            </div>
+            
+            <!-- Profit Calculator -->
+            <div class="profit-calculator">
+                <h4>💰 Profit Calculator</h4>
+                <div class="calculator-input">
+                    <label>Investment Amount (EUR):</label>
+                    <input type="number" id="investmentAmount" placeholder="1000" value="1000" min="0" step="100">
+                    <button onclick="calculateProfit(${entryPrice}, ${takeProfitPrice}, ${stopLossPrice})">Calculate</button>
+                </div>
+                <div id="profitResults" class="profit-results" style="display: none;">
+                    <!-- Results will be displayed here -->
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Statistical Validation
+    const statisticalValidation = `
+        <div class="statistical-validation">
+            <h3>📊 Statistical Validation</h3>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="stat-label">P-Value</div>
+                    <div class="stat-value">${data.statistical_validation.p_value.toFixed(4)}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Sample Size</div>
+                    <div class="stat-value">${data.statistical_validation.sample_size}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Confidence Interval</div>
+                    <div class="stat-value">±${(data.statistical_validation.confidence_interval * 100).toFixed(1)}%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Statistical Power</div>
+                    <div class="stat-value">${(data.statistical_validation.statistical_power * 100).toFixed(0)}%</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Cross-Module Validation
+    const crossValidation = `
+        <div class="cross-validation">
+            <h3>🔄 Cross-Module Validation</h3>
+            <p>Overall Consistency: <span class="consistency-indicator consistency-${data.cross_module_validation.overall_consistency}">${data.cross_module_validation.overall_consistency}</span></p>
+            ${data.cross_module_validation.conflicts !== 'None' ? `<p><strong>Conflicts:</strong> ${data.cross_module_validation.conflicts}</p>` : ''}
+            ${data.cross_module_validation.confirmations !== 'None' ? `<p><strong>Confirmations:</strong> ${data.cross_module_validation.confirmations}</p>` : ''}
+        </div>
+    `;
+    
+    // Quality Warnings (if any)
+    let qualityWarnings = '';
+    if (data.quality_assurance.validation_flags && data.quality_assurance.validation_flags.length > 0) {
+        qualityWarnings = `
+            <div class="quality-warning">
+                <h4>⚠️ Quality Warnings</h4>
+                <ul class="warning-flags">
+                    ${data.quality_assurance.validation_flags.map(flag => `<li>${flag}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    // Combine all sections
+    professionalSection.innerHTML = qualityStatus + riskManagement + entryExitCriteria + statisticalValidation + crossValidation + qualityWarnings;
+    
+    // Insert after the main analysis results
+    const resultsSection = document.getElementById('results');
+    if (resultsSection) {
+        resultsSection.appendChild(professionalSection);
+    }
+}
+
 // Load top stocks when page loads
 window.addEventListener('load', () => {
     loadTopStocks();
     initializeTabs(); // Initialize tabs on page load
+    
+    // Add event listeners for top stocks quality selector
+    const qualityInputs = document.querySelectorAll('input[name="topStocksQuality"]');
+    qualityInputs.forEach(input => {
+        input.addEventListener('change', () => {
+            console.log('Top stocks quality changed to:', input.value);
+            loadTopStocks();
+        });
+    });
 });
 
 // Also initialize tabs when DOM is ready
 document.addEventListener('DOMContentLoaded', initializeTabs);
+
+// Risk/Reward Filter Functions
+function updateRiskRewardDisplay(value) {
+    document.getElementById('riskRewardValue').textContent = parseFloat(value).toFixed(1);
+    currentRiskRewardFilter = parseFloat(value);
+}
+
+function applyRiskRewardFilter() {
+    loadTopStocks(true);
+}
+
+// Profit Calculator Function
+function calculateProfit(entryPrice, takeProfitPrice, stopLossPrice) {
+    const investmentEUR = parseFloat(document.getElementById('investmentAmount').value) || 1000;
+    
+    // Calculate number of shares (assuming USD/EUR rate of ~1.08)
+    const usdToEurRate = 1.08; // Approximate rate
+    const investmentUSD = investmentEUR * usdToEurRate;
+    const numShares = investmentUSD / entryPrice;
+    
+    // Calculate potential profit
+    const profitUSD = numShares * (takeProfitPrice - entryPrice);
+    const profitEUR = profitUSD / usdToEurRate;
+    const profitPercent = (profitEUR / investmentEUR) * 100;
+    
+    // Calculate potential loss
+    const lossUSD = numShares * (entryPrice - stopLossPrice);
+    const lossEUR = lossUSD / usdToEurRate;
+    const lossPercent = (lossEUR / investmentEUR) * 100;
+    
+    // Calculate risk/reward ratio (reward divided by risk)
+    const riskRewardRatio = Math.abs(profitEUR / lossEUR);
+    
+    // Display results
+    const resultsDiv = document.getElementById('profitResults');
+    resultsDiv.innerHTML = `
+        <div class="profit-calculation-results">
+            <div class="calc-result positive">
+                <div class="calc-label">Potential Profit (Target Hit)</div>
+                <div class="calc-value">€${profitEUR.toFixed(2)}</div>
+                <div class="calc-percent">+${profitPercent.toFixed(1)}%</div>
+            </div>
+            <div class="calc-result negative">
+                <div class="calc-label">Potential Loss (Stop Hit)</div>
+                <div class="calc-value">-€${lossEUR.toFixed(2)}</div>
+                <div class="calc-percent">-${lossPercent.toFixed(1)}%</div>
+            </div>
+            <div class="calc-result ${riskRewardRatio >= 2 ? 'positive' : riskRewardRatio >= 1 ? '' : 'negative'}">
+                <div class="calc-label">Risk/Reward Ratio</div>
+                <div class="calc-value">1:${riskRewardRatio.toFixed(2)}</div>
+                <div class="calc-percent">${riskRewardRatio >= 2 ? 'Excellent' : riskRewardRatio >= 1.5 ? 'Good' : riskRewardRatio >= 1 ? 'Fair' : 'Poor'}</div>
+            </div>
+            <div class="calc-details">
+                <small>
+                    Shares: ${numShares.toFixed(2)} | 
+                    Entry: $${entryPrice.toFixed(2)} | 
+                    EUR/USD: ${(1/usdToEurRate).toFixed(3)}
+                </small>
+                <div style="margin-top: 10px; font-style: italic; color: #6c757d;">
+                    <small>Risk/Reward 1:${riskRewardRatio.toFixed(2)} means: For every €1 you risk, you could gain €${riskRewardRatio.toFixed(2)}</small>
+                </div>
+            </div>
+        </div>
+    `;
+    resultsDiv.style.display = 'block';
+    
+    // Scroll to results
+    resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}

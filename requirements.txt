@@ -7,6 +7,11 @@ numpy>=1.21.0
 requests>=2.28.0
 urllib3>=1.26.0
 
+# New dependencies for v3.0.0 enhancements
+textblob>=0.17.1          # For news sentiment analysis
+feedparser>=6.0.10        # For RSS news feeds
+scipy>=1.9.0              # For statistical calculations (used by some indicators)
+
 # Development Dependencies (install with: pip install -r requirements-dev.txt)
 # pytest>=7.0.0
 # black>=22.0.0

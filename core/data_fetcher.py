@@ -230,7 +230,250 @@ def search_ticker_by_name(company_name: str) -> Optional[str]:
             'british american tobacco': 'BATS.L',
             'diageo': 'DGE.L',
             'aviva': 'AV.L',
-            'prudential': 'PRU.L'
+            'prudential': 'PRU.L',
+            
+            # Belgium Companies
+            'anheuser-busch': 'ABI.BR',
+            'anheuser busch inbev': 'ABI.BR',
+            'ab inbev': 'ABI.BR',
+            'kbc group': 'KBC.BR',
+            'kbc': 'KBC.BR',
+            'solvay': 'SOLB.BR',
+            'ucb': 'UCB.BR',
+            'ageas': 'AGS.BR',
+            'proximus': 'PROX.BR',
+            'colruyt': 'COLR.BR',
+            'sofina': 'SOF.BR',
+            'ackermans': 'ACKB.BR',
+            'gbl': 'GBLB.BR',
+            
+            # More German Companies
+            'biontech': 'BNTX',  # NASDAQ listing
+            'biontech se': '22UA.DE',  # German listing
+            'deutsche post': 'DPW.DE',
+            'fresenius': 'FRE.DE',
+            'merck kgaa': 'MRK.DE',
+            'deutsche telekom': 'DTE.DE',
+            'e.on': 'EOAN.DE',
+            'rwe': 'RWE.DE',
+            'thyssenkrupp': 'TKA.DE',
+            'beiersdorf': 'BEI.DE',
+            'porsche': 'P911.DE',
+            'zalando': 'ZAL.DE',
+            'hellofresh': 'HFG.DE',
+            'delivery hero': 'DHER.DE',
+            'wirecard': 'WDI.DE',
+            'commerzbank': 'CBK.DE',
+            'metro': 'B4B.DE',
+            'hugo boss': 'BOSS.DE',
+            'puma': 'PUM.DE',
+            
+            # More Dutch Companies
+            'ahold delhaize': 'AD.AS',
+            'wolters kluwer': 'WKL.AS',
+            'kpn': 'KPN.AS',
+            'aegon': 'AGN.AS',
+            'nn group': 'NN.AS',
+            'just eat takeaway': 'TKWY.AS',
+            'randstad': 'RAND.AS',
+            'imcd': 'IMCD.AS',
+            'signify': 'LIGHT.AS',
+            'arcadis': 'ARCAD.AS',
+            'corbion': 'CRBN.AS',
+            'fugro': 'FUR.AS',
+            
+            # More French Companies
+            'atos': 'ATO.PA',
+            'societe generale': 'GLE.PA',
+            'credit agricole': 'ACA.PA',
+            'essilor': 'EL.PA',
+            'essilorluxottica': 'EL.PA',
+            'saint-gobain': 'SGO.PA',
+            'renault': 'RNO.PA',
+            'carrefour': 'CA.PA',
+            'vivendi': 'VIV.PA',
+            'thales': 'HO.PA',
+            'veolia': 'VIE.PA',
+            'air liquide': 'AI.PA',
+            'legrand': 'LR.PA',
+            'dassault systemes': 'DSY.PA',
+            'engie': 'ENGI.PA',
+            'edenred': 'EDEN.PA',
+            'sodexo': 'SW.PA',
+            'publicis': 'PUB.PA',
+            'teleperformance': 'TEP.PA',
+            
+            # More Swiss Companies
+            'swatch': 'UHR.SW',
+            'holcim': 'HOLN.SW',
+            'lafargeholcim': 'HOLN.SW',
+            'julius baer': 'BAER.SW',
+            'partners group': 'PGHN.SW',
+            'schindler': 'SCHN.SW',
+            'sika': 'SIKA.SW',
+            'geberit': 'GEBN.SW',
+            'kuehne nagel': 'KNIN.SW',
+            'baloise': 'BALN.SW',
+            'temenos': 'TEMN.SW',
+            'logitech': 'LOGN.SW',
+            'sonova': 'SOON.SW',
+            'straumann': 'STMN.SW',
+            
+            # More Italian Companies
+            'fiat chrysler': 'STLA.MI',
+            'fca': 'STLA.MI',
+            'pirelli': 'PIRC.MI',
+            'luxottica': 'LUX.MI',
+            'atlantia': 'ATL.MI',
+            'poste italiane': 'PST.MI',
+            'terna': 'TRN.MI',
+            'snam': 'SRG.MI',
+            'mediobanca': 'MB.MI',
+            'banco bpm': 'BAMI.MI',
+            'banca mediolanum': 'BMED.MI',
+            'campari': 'CPR.MI',
+            'diasorin': 'DIA.MI',
+            'amplifon': 'AMP.MI',
+            'recordati': 'REC.MI',
+            
+            # More Spanish Companies
+            'caixabank': 'CABK.MC',
+            'amadeus': 'AMS.MC',
+            'siemens gamesa': 'SGRE.MC',
+            'acciona': 'ANA.MC',
+            'acs': 'ACS.MC',
+            'grifols': 'GRF.MC',
+            'mapfre': 'MAP.MC',
+            'red electrica': 'REE.MC',
+            'enagas': 'ENG.MC',
+            'bankinter': 'BKT.MC',
+            'indra': 'IDR.MC',
+            'cellnex': 'CLNX.MC',
+            'merlin properties': 'MRL.MC',
+            'inmobiliaria colonial': 'COL.MC',
+            
+            # Nordic Companies - Sweden
+            'ericsson': 'ERIC-B.ST',
+            'volvo': 'VOLV-B.ST',
+            'hennes & mauritz': 'HM-B.ST',
+            'h&m': 'HM-B.ST',
+            'atlas copco': 'ATCO-A.ST',
+            'sandvik': 'SAND.ST',
+            'investor': 'INVE-B.ST',
+            'nordea': 'NDA-SE.ST',
+            'swedbank': 'SWED-A.ST',
+            'seb': 'SEB-A.ST',
+            'skf': 'SKF-B.ST',
+            'telia': 'TELIA.ST',
+            'hexagon': 'HEXA-B.ST',
+            'essity': 'ESSITY-B.ST',
+            'abb': 'ABB.ST',
+            'astrazeneca': 'AZN.ST',
+            'spotify': 'SPOT.ST',
+            'evolution': 'EVO.ST',
+            'swedish match': 'SWMA.ST',
+            'electrolux': 'ELUX-B.ST',
+            
+            # Nordic Companies - Denmark
+            'novo nordisk': 'NOVO-B.CO',
+            'danske bank': 'DANSKE.CO',
+            'carlsberg': 'CARL-B.CO',
+            'orsted': 'ORSTED.CO',
+            'vestas': 'VWS.CO',
+            'pandora': 'PNDORA.CO',
+            'dsv': 'DSV.CO',
+            'coloplast': 'COLO-B.CO',
+            'demant': 'DEMANT.CO',
+            'gn store nord': 'GN.CO',
+            'chr hansen': 'CHR.CO',
+            'ambu': 'AMBU-B.CO',
+            'tryg': 'TRYG.CO',
+            'novozymes': 'NZYM-B.CO',
+            
+            # Nordic Companies - Norway
+            'equinor': 'EQNR.OL',
+            'dnb': 'DNB.OL',
+            'telenor': 'TEL.OL',
+            'norsk hydro': 'NHY.OL',
+            'yara': 'YAR.OL',
+            'gjensidige': 'GJF.OL',
+            'orkla': 'ORK.OL',
+            'schibsted': 'SCHA.OL',
+            'aker': 'AKER.OL',
+            'storebrand': 'STB.OL',
+            'salmar': 'SALM.OL',
+            'mowi': 'MOWI.OL',
+            
+            # Nordic Companies - Finland
+            'nokia': 'NOKIA.HE',
+            'nordea': 'NDA-FI.HE',
+            'sampo': 'SAMPO.HE',
+            'kone': 'KNEBV.HE',
+            'neste': 'NESTE.HE',
+            'upm': 'UPM.HE',
+            'stora enso': 'STERV.HE',
+            'wartsila': 'WRT1V.HE',
+            'metso': 'METSO.HE',
+            'elisa': 'ELISA.HE',
+            'fortum': 'FORTUM.HE',
+            'orion': 'ORNBV.HE',
+            
+            # Austrian Companies
+            'omv': 'OMV.VI',
+            'erste group': 'EBS.VI',
+            'voestalpine': 'VOE.VI',
+            'verbund': 'VER.VI',
+            'andritz': 'ANDR.VI',
+            'wienerberger': 'WIE.VI',
+            'raiffeisen': 'RBI.VI',
+            'vienna insurance': 'VIG.VI',
+            
+            # Irish Companies
+            'ryanair': 'RYA.I',
+            'crh': 'CRH.I',
+            'kerry group': 'KYG.I',
+            'smurfit kappa': 'SKG.I',
+            'aib': 'AIBG.I',
+            'bank of ireland': 'BIRG.I',
+            'paddy power': 'PPB.I',
+            'flutter': 'FLTR.I',
+            
+            # Portuguese Companies
+            'edp': 'EDP.LS',
+            'galp': 'GALP.LS',
+            'jeronimo martins': 'JMT.LS',
+            'bcp': 'BCP.LS',
+            'nos': 'NOS.LS',
+            'navigator': 'NVG.LS',
+            
+            # Greek Companies
+            'national bank greece': 'ETE.AT',
+            'alpha bank': 'ALPHA.AT',
+            'opap': 'OPAP.AT',
+            'ote': 'HTO.AT',
+            'motor oil': 'MOH.AT',
+            'titan cement': 'TITK.AT',
+            
+            # Polish Companies
+            'pkn orlen': 'PKN.WA',
+            'pko bank': 'PKO.WA',
+            'pzu': 'PZU.WA',
+            'kghm': 'KGH.WA',
+            'cd projekt': 'CDR.WA',
+            'dino polska': 'DNP.WA',
+            'allegro': 'ALE.WA',
+            
+            # Czech Companies
+            'cez': 'CEZ.PR',
+            'komercni banka': 'KOMB.PR',
+            'moneta': 'MONET.PR',
+            'avast': 'AVST.PR',
+            
+            # Hungarian Companies
+            'otp bank': 'OTP.BD',
+            'mol': 'MOL.BD',
+            'richter': 'RICHT.BD',
+            'mtelekom': 'MTEL.BD'
         }
         
         # Convert to lowercase for matching
@@ -244,6 +487,15 @@ def search_ticker_by_name(company_name: str) -> Optional[str]:
         for name, ticker in name_to_ticker.items():
             if search_term.startswith(name.lower()) or name.lower().startswith(search_term):
                 return ticker
+        
+        # Try fuzzy search as fallback
+        try:
+            from .european_stock_search import fuzzy_search_european_stocks
+            fuzzy_result = fuzzy_search_european_stocks(company_name, name_to_ticker)
+            if fuzzy_result:
+                return fuzzy_result
+        except Exception as e:
+            print(f"Fuzzy search failed: {e}")
         
         # If no match found, try using the input as ticker
         if validate_ticker(company_name):
@@ -282,3 +534,43 @@ def get_top_stocks_for_scanning() -> List[str]:
         'ASML.AS', 'SAP.DE', 'RHM.DE', 'TSLA', 'SPOT', 'ADYEN.AS',
         'BNTX', 'QCOM', 'ARM', 'TM', 'SONY', 'BABA', 'TSM'
     ]
+
+def get_top_stocks_for_scanning_with_europe() -> List[str]:
+    """Get stocks including major European equities for comprehensive scanning."""
+    us_stocks = get_top_stocks_for_scanning()
+    
+    # Add major European stocks
+    european_stocks = [
+        # German DAX stocks
+        'SAP.DE', 'SIE.DE', 'ALV.DE', 'MBG.DE', 'BMW.DE', 'BAS.DE', 'BAYN.DE',
+        'ADS.DE', 'VNA.DE', 'DBK.DE', 'VOW3.DE', 'IFX.DE', 'HEN3.DE', 'MUV2.DE',
+        'RHM.DE',  # Rheinmetall - defense stock
+        
+        # French CAC 40
+        'MC.PA', 'OR.PA', 'SAN.PA', 'TTE.PA', 'AIR.PA', 'BNP.PA', 'ACA.PA',
+        'SU.PA', 'CS.PA', 'EL.PA', 'DG.PA', 'RI.PA', 'KER.PA',
+        
+        # Dutch AEX
+        'ASML.AS', 'SHELL.AS', 'UNA.AS', 'HEIA.AS', 'INGA.AS', 'ADYEN.AS',
+        'WKL.AS', 'PHIA.AS', 'ABN.AS', 'KPN.AS',
+        
+        # UK FTSE (accessible via European exchanges)
+        'SHEL.L', 'AZN.L', 'HSBA.L', 'BP.L', 'GSK.L', 'DGE.L', 'RIO.L',
+        'ULVR.L', 'NG.L', 'LLOY.L', 'BARC.L', 'STAN.L',
+        
+        # Swiss SMI
+        'NESN.SW', 'ROG.SW', 'NOVN.SW', 'UBS.SW', 'CSGN.SW', 'SREN.SW',
+        'GEBN.SW', 'GIVN.SW', 'ABBN.SW', 'LONN.SW',
+        
+        # Italian FTSE MIB
+        'ISP.MI', 'UCG.MI', 'ENEL.MI', 'ENI.MI', 'RACE.MI', 'STM.MI',
+        'G.MI', 'LDO.MI', 'MONC.MI',
+        
+        # Spanish IBEX
+        'ITX.MC', 'SAN.MC', 'TEF.MC', 'IBE.MC', 'BBVA.MC', 'AMA.MC',
+        'REP.MC', 'FER.MC', 'GRF.MC'
+    ]
+    
+    # Combine and return unique stocks
+    all_stocks = list(set(us_stocks + european_stocks))
+    return all_stocks[:100]  # Limit to 100 for performance

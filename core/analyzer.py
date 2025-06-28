@@ -829,6 +829,32 @@ def analyze_with_enhanced_accuracy(ticker: str, log_prediction_enabled: bool = T
             if multi_tf_result.get('multi_tf_reasoning'):
                 enhanced_reasoning.extend(multi_tf_result['multi_tf_reasoning'])
             
+            # Get algorithmic forecast
+            algo_forecast = None
+            try:
+                from .algo_forecast import AlgorithmicForecast
+                algo_forecaster = AlgorithmicForecast()
+                algo_forecast = algo_forecaster.predict_algorithmic_movements(stock_data)
+                
+                # Enhance reasoning with algorithmic predictions
+                if algo_forecast.confidence > 0.5:
+                    enhanced_reasoning.append(f"Algorithmic Forecast: {algo_forecast.forecast_direction} with {algo_forecast.confidence:.0%} confidence")
+                    if algo_forecast.algo_triggers:
+                        enhanced_reasoning.append(f"Algorithm Triggers: {', '.join([f'${t:.2f}' for t in algo_forecast.algo_triggers[:3]])}")
+                    enhanced_reasoning.extend(algo_forecast.reasoning[:2])  # Add top 2 algorithmic reasons
+                    
+                    # Apply minor adjustment based on algorithmic forecast
+                    algo_adjustment = 0
+                    if algo_forecast.forecast_direction == 'UP' and final_rating in ['BUY', 'HOLD']:
+                        algo_adjustment = 0.02 * algo_forecast.confidence
+                    elif algo_forecast.forecast_direction == 'DOWN' and final_rating in ['SELL', 'HOLD']:
+                        algo_adjustment = -0.02 * algo_forecast.confidence
+                    
+                    enhanced_confidence = min(1.0, enhanced_confidence + (algo_adjustment * 0.5))
+            
+            except Exception as e:
+                print(f"Algorithmic forecast failed for {ticker}: {e}")
+            
             # Create enhanced result
             enhanced_result = AnalysisResult(
                 ticker=primary_analysis.ticker,
