@@ -254,36 +254,43 @@ function showError(message) {
 // Global variable to track risk/reward filter
 let currentRiskRewardFilter = 1.0;
 
-async function loadTopStocks(applyRiskReward = false) {
+async function loadTopStocks(applyFilters = false) {
     try {
         // Get selected quality level for top stocks
         const qualityLevel = document.querySelector('input[name="topStocksQuality"]:checked')?.value || 'research';
-        const riskRewardThreshold = applyRiskReward ? currentRiskRewardFilter : 0;
+        const riskRewardThreshold = applyFilters ? currentRiskRewardFilter : 0;
+        
+        // Get investment amount and time horizon with debugging
+        const investmentElement = document.getElementById('investmentAmount');
+        const timeHorizonElement = document.getElementById('timeHorizonSlider');
+        
+        const investmentAmount = parseFloat(investmentElement?.value) || 1000;
+        const timeHorizon = parseInt(timeHorizonElement?.value) || 5;
         
         document.getElementById('topStocksLoading').style.display = 'block';
         document.getElementById('topStocksGrid').style.display = 'none';
         
         let loadingText = `Scanning US & European markets for ${qualityLevel} quality opportunities...`;
-        if (applyRiskReward) {
-            loadingText = `Finding opportunities with R:R ≥ 1:${riskRewardThreshold} in US & European markets...`;
+        if (applyFilters) {
+            loadingText = `Finding opportunities for €${investmentAmount} over ${timeHorizon} days with R:R ≥ 1:${riskRewardThreshold}...`;
         }
         document.getElementById('topStocksLoading').textContent = loadingText;
         
-        const response = await fetch(`/api/top-stocks?quality=${qualityLevel}&min_rr=${riskRewardThreshold}`);
+        const response = await fetch(`/api/top-stocks?quality=${qualityLevel}&min_rr=${riskRewardThreshold}&investment=${investmentAmount}&days=${timeHorizon}`);
         const data = await response.json();
         
         if (!response.ok) {
             throw new Error(data.error || 'Failed to load top stocks');
         }
         
-        displayTopStocks(data.stocks, data.quality_level, data.scan_method);
+        displayTopStocks(data.stocks, data.quality_level, data.scan_method, investmentAmount, timeHorizon);
     } catch (error) {
         console.error('Error loading top stocks:', error);
         document.getElementById('topStocksLoading').textContent = 'Failed to load top stocks';
     }
 }
 
-function displayTopStocks(stocks, qualityLevel, scanMethod) {
+function displayTopStocks(stocks, qualityLevel, scanMethod, investmentAmount = 1000, timeHorizon = 5) {
     const grid = document.getElementById('topStocksGrid');
     grid.innerHTML = '';
     
@@ -294,6 +301,8 @@ function displayTopStocks(stocks, qualityLevel, scanMethod) {
         headerInfo.innerHTML = `
             Markets: <strong>US & Europe</strong> | 
             Quality Level: <strong>${qualityLevel.toUpperCase()}</strong> | 
+            Investment: <strong>€${investmentAmount}</strong> | 
+            Time Horizon: <strong>${timeHorizon} days</strong> | 
             Found: <strong>${stocks.length}</strong> opportunities
         `;
         grid.appendChild(headerInfo);
@@ -324,29 +333,73 @@ function displayTopStocks(stocks, qualityLevel, scanMethod) {
         const riskScore = stock.risk_score || 0;
         const riskRewardRatio = stock.risk_reward_ratio || 0;
         
-        // Show consistent professional format for all quality levels
-        let additionalInfo = `
-            <div class="stock-quality">Quality: ${qualityInfo || 'EXPERIMENTAL'}</div>
-            <div class="stock-risk">Risk: ${(riskScore * 100).toFixed(0)}%</div>
-        `;
+        // Calculate forecasted returns in a cleaner way
+        const currentPrice = stock.current_price;
+        const takeProfitPrice = stock.take_profit || currentPrice * 1.05;
+        const stopLossPrice = stock.stop_loss || currentPrice * 0.95;
         
-        // Add risk/reward ratio if available
+        // Calculate EUR returns
+        const usdToEurRate = 1.08;
+        const investmentUSD = investmentAmount * usdToEurRate;
+        const shares = investmentUSD / currentPrice;
+        
+        // Improved time-based estimation using risk/reward data
+        let projectedReturnEUR = 0;
+        let projectedReturnPercent = 0;
+        
         if (riskRewardRatio > 0) {
-            const rrColor = riskRewardRatio >= 2 ? '#28a745' : riskRewardRatio >= 1.5 ? '#ffc107' : '#dc3545';
-            additionalInfo += `<div class="stock-rr" style="color: ${rrColor}; font-weight: 500;">R:R 1:${riskRewardRatio.toFixed(1)}</div>`;
-            
-            // Add warning if below threshold
-            if (stock.below_rr_threshold) {
-                additionalInfo += `<div style="color: #ff6b6b; font-size: 0.75rem; font-style: italic;">Below R:R filter</div>`;
-            }
+            // Use actual risk/reward ratio for more accurate forecasting
+            const maxGainUSD = shares * (takeProfitPrice - currentPrice);
+            const maxGainEUR = maxGainUSD / usdToEurRate;
+            // Scale by time horizon and add some probability weighting
+            const timeScaleFactor = Math.min(timeHorizon / 14, 1); // Normalize to 14 days
+            const probabilityWeight = Math.min(stock.confidence * 1.2, 0.8); // Use confidence but cap at 80%
+            projectedReturnEUR = maxGainEUR * timeScaleFactor * probabilityWeight;
+            projectedReturnPercent = (projectedReturnEUR / investmentAmount) * 100;
         }
         
-        item.innerHTML = `
-            <h4>${emoji} ${stock.ticker}</h4>
-            <div class="stock-rating ${stock.rating}">${stock.rating}</div>
-            <div class="stock-confidence">Confidence: ${(stock.confidence * 100).toFixed(0)}%</div>
-            ${additionalInfo}
+        // Clean card layout
+        const cardContent = `
+            <div class="stock-header">
+                <h4>${emoji} ${stock.ticker}</h4>
+                <div class="stock-price">$${currentPrice.toFixed(2)}</div>
+            </div>
+            
+            <div class="stock-rating-section">
+                <div class="stock-rating ${stock.rating}">${stock.rating}</div>
+                <div class="stock-confidence">${(stock.confidence * 100).toFixed(0)}% confidence</div>
+            </div>
+            
+            <div class="stock-forecast-box">
+                <div class="forecast-header">Forecast (${timeHorizon} days)</div>
+                <div class="forecast-return ${projectedReturnEUR >= 0 ? 'positive' : 'negative'}">
+                    ${projectedReturnEUR >= 0 ? '+' : ''}€${Math.abs(projectedReturnEUR).toFixed(2)}
+                </div>
+                <div class="forecast-percent">
+                    ${projectedReturnPercent >= 0 ? '+' : ''}${projectedReturnPercent.toFixed(1)}%
+                </div>
+            </div>
+            
+            <div class="stock-details">
+                <div class="detail-row">
+                    <span class="detail-label">Risk Level:</span>
+                    <span class="detail-value">${qualityInfo || 'AGGRESSIVE'}</span>
+                </div>
+                ${riskRewardRatio > 0 ? `
+                <div class="detail-row">
+                    <span class="detail-label">Risk/Reward:</span>
+                    <span class="detail-value risk-reward-${riskRewardRatio >= 2 ? 'excellent' : riskRewardRatio >= 1.5 ? 'good' : 'fair'}">
+                        1:${riskRewardRatio.toFixed(1)}
+                    </span>
+                </div>
+                ` : ''}
+                ${stock.below_rr_threshold ? `
+                <div class="warning-text">Below R:R filter</div>
+                ` : ''}
+            </div>
         `;
+        
+        item.innerHTML = cardContent;
         
         item.onclick = () => {
             // Remove active class from all items
@@ -723,8 +776,17 @@ function displayProfessionalAnalysis(data) {
                 <h4>💰 Profit Calculator</h4>
                 <div class="calculator-input">
                     <label>Investment Amount (EUR):</label>
-                    <input type="number" id="investmentAmount" placeholder="1000" value="1000" min="0" step="100">
-                    <button onclick="calculateProfit(${entryPrice}, ${takeProfitPrice}, ${stopLossPrice})">Calculate</button>
+                    <input type="number" id="investmentAmountAnalysis" placeholder="1000" value="1000" min="0" step="100">
+                </div>
+                <div class="calculator-input">
+                    <label>Time Horizon:</label>
+                    <input type="range" id="timeHorizonAnalysisSlider" min="1" max="14" step="1" value="${data.risk_management.time_horizon_days || 5}" 
+                           style="width: 200px;" oninput="updateAnalysisTimeHorizonDisplay(this.value)">
+                    <span id="timeHorizonAnalysisValue" style="font-weight: 600; min-width: 60px;">${data.risk_management.time_horizon_days || 5} days</span>
+                    <small style="color: #666; margin-left: 10px;">(Suggested: ${data.risk_management.time_horizon_days} days)</small>
+                </div>
+                <div class="calculator-input">
+                    <button onclick="calculateProfitWithTimeHorizon(${entryPrice}, ${takeProfitPrice}, ${stopLossPrice})">Calculate Returns</button>
                 </div>
                 <div id="profitResults" class="profit-results" style="display: none;">
                     <!-- Results will be displayed here -->
@@ -793,6 +855,7 @@ function displayProfessionalAnalysis(data) {
 
 // Load top stocks when page loads
 window.addEventListener('load', () => {
+    initializeControls(); // Initialize controls first
     loadTopStocks();
     initializeTabs(); // Initialize tabs on page load
     
@@ -800,10 +863,32 @@ window.addEventListener('load', () => {
     const qualityInputs = document.querySelectorAll('input[name="topStocksQuality"]');
     qualityInputs.forEach(input => {
         input.addEventListener('change', () => {
-            console.log('Top stocks quality changed to:', input.value);
             loadTopStocks();
         });
     });
+    
+    // Add event listeners for investment amount changes
+    const investmentInput = document.getElementById('investmentAmount');
+    if (investmentInput) {
+        investmentInput.addEventListener('input', () => {
+            // Auto-update on significant changes (every 100 EUR)
+            if (parseInt(investmentInput.value) % 100 === 0) {
+                loadTopStocks(true);
+            }
+        });
+    }
+    
+    // Add event listener for time horizon changes
+    const timeHorizonSlider = document.getElementById('timeHorizonSlider');
+    if (timeHorizonSlider) {
+        timeHorizonSlider.addEventListener('input', (e) => {
+            updateTimeHorizonDisplay(e.target.value);
+        });
+        
+        timeHorizonSlider.addEventListener('change', () => {
+            loadTopStocks(true);
+        });
+    }
 });
 
 // Also initialize tabs when DOM is ready
@@ -811,7 +896,8 @@ document.addEventListener('DOMContentLoaded', initializeTabs);
 
 // Risk/Reward Filter Functions
 function updateRiskRewardDisplay(value) {
-    document.getElementById('riskRewardValue').textContent = parseFloat(value).toFixed(1);
+    const formattedValue = parseFloat(value).toFixed(1);
+    document.getElementById('riskRewardValue').textContent = formattedValue;
     currentRiskRewardFilter = parseFloat(value);
 }
 
@@ -819,9 +905,60 @@ function applyRiskRewardFilter() {
     loadTopStocks(true);
 }
 
-// Profit Calculator Function
+// Time Horizon Functions
+function updateTimeHorizonDisplay(value) {
+    const days = parseInt(value);
+    const displayText = `${days} day${days > 1 ? 's' : ''}`;
+    document.getElementById('timeHorizonValue').textContent = displayText;
+}
+
+// Combined filter application
+function applyTopStocksFilters() {
+    loadTopStocks(true);
+}
+
+// Initialize controls on page load
+function initializeControls() {
+    // Initialize time horizon display
+    const timeHorizonSlider = document.getElementById('timeHorizonSlider');
+    if (timeHorizonSlider) {
+        updateTimeHorizonDisplay(timeHorizonSlider.value);
+    }
+    
+    // Initialize risk/reward display  
+    const riskRewardSlider = document.getElementById('riskRewardSlider');
+    if (riskRewardSlider) {
+        updateRiskRewardDisplay(riskRewardSlider.value);
+    }
+}
+
+// Analysis Time Horizon Functions
+function updateAnalysisTimeHorizonDisplay(value) {
+    const days = parseInt(value);
+    document.getElementById('timeHorizonAnalysisValue').textContent = `${days} day${days > 1 ? 's' : ''}`;
+}
+
+// Enhanced Profit Calculator Function with Time Horizon
+function calculateProfitWithTimeHorizon(entryPrice, takeProfitPrice, stopLossPrice) {
+    const investmentEUR = parseFloat(document.getElementById('investmentAmountAnalysis').value) || 1000;
+    const timeHorizon = parseInt(document.getElementById('timeHorizonAnalysisSlider').value) || 5;
+    
+    // Calculate time-adjusted targets
+    const dailyReturnRate = (takeProfitPrice - entryPrice) / entryPrice / 14; // Assume targets are for 14 days
+    const timeAdjustedTarget = entryPrice * (1 + dailyReturnRate * timeHorizon);
+    const timeAdjustedStopLoss = entryPrice * (1 - Math.abs(stopLossPrice - entryPrice) / entryPrice * (timeHorizon / 14));
+    
+    calculateProfitInternal(entryPrice, timeAdjustedTarget, timeAdjustedStopLoss, investmentEUR, timeHorizon);
+}
+
+// Original Profit Calculator Function (backward compatibility)
 function calculateProfit(entryPrice, takeProfitPrice, stopLossPrice) {
-    const investmentEUR = parseFloat(document.getElementById('investmentAmount').value) || 1000;
+    const investmentEUR = parseFloat(document.getElementById('investmentAmount')?.value) || 1000;
+    calculateProfitInternal(entryPrice, takeProfitPrice, stopLossPrice, investmentEUR, 5);
+}
+
+// Internal calculation function
+function calculateProfitInternal(entryPrice, takeProfitPrice, stopLossPrice, investmentEUR, timeHorizon) {
     
     // Calculate number of shares (assuming USD/EUR rate of ~1.08)
     const usdToEurRate = 1.08; // Approximate rate
@@ -845,6 +982,9 @@ function calculateProfit(entryPrice, takeProfitPrice, stopLossPrice) {
     const resultsDiv = document.getElementById('profitResults');
     resultsDiv.innerHTML = `
         <div class="profit-calculation-results">
+            <div style="text-align: center; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                <strong>Forecast for €${investmentEUR} over ${timeHorizon} day${timeHorizon > 1 ? 's' : ''}</strong>
+            </div>
             <div class="calc-result positive">
                 <div class="calc-label">Potential Profit (Target Hit)</div>
                 <div class="calc-value">€${profitEUR.toFixed(2)}</div>
@@ -864,10 +1004,12 @@ function calculateProfit(entryPrice, takeProfitPrice, stopLossPrice) {
                 <small>
                     Shares: ${numShares.toFixed(2)} | 
                     Entry: $${entryPrice.toFixed(2)} | 
-                    EUR/USD: ${(1/usdToEurRate).toFixed(3)}
+                    Target: $${takeProfitPrice.toFixed(2)} | 
+                    Stop: $${stopLossPrice.toFixed(2)} |
+                    Time: ${timeHorizon} days
                 </small>
                 <div style="margin-top: 10px; font-style: italic; color: #6c757d;">
-                    <small>Risk/Reward 1:${riskRewardRatio.toFixed(2)} means: For every €1 you risk, you could gain €${riskRewardRatio.toFixed(2)}</small>
+                    <small>Time-adjusted forecast: Returns are scaled based on your selected ${timeHorizon}-day time horizon</small>
                 </div>
             </div>
         </div>

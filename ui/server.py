@@ -74,6 +74,13 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
                 self.send_error_response(400, "Query parameter required")
                 return
             
+            # Input sanitization - limit length and strip whitespace
+            query = str(query).strip()[:50]  # Limit to 50 chars for safety
+            
+            if not query:
+                self.send_error_response(400, "Invalid query parameter")
+                return
+            
             # Check if query is a ticker or company name
             ticker = query.upper()
             
@@ -180,15 +187,20 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
                 self.send_error_response(400, "Query parameter required")
                 return
             
-            # Map quality parameter to QualityLevel enum
+            # Map risk parameter to QualityLevel enum
             quality_mapping = {
-                'institutional': QualityLevel.INSTITUTIONAL,
-                'professional': QualityLevel.PROFESSIONAL,
-                'retail': QualityLevel.RETAIL,
-                'experimental': QualityLevel.EXPERIMENTAL
+                'low_risk': QualityLevel.LOW_RISK,
+                'moderate_risk': QualityLevel.MODERATE_RISK,
+                'high_risk': QualityLevel.HIGH_RISK,
+                'aggressive': QualityLevel.AGGRESSIVE,
+                # Legacy mappings for backward compatibility
+                'institutional': QualityLevel.LOW_RISK,
+                'professional': QualityLevel.MODERATE_RISK,
+                'retail': QualityLevel.HIGH_RISK,
+                'experimental': QualityLevel.AGGRESSIVE
             }
             
-            target_quality = quality_mapping.get(quality_level, QualityLevel.PROFESSIONAL)
+            target_quality = quality_mapping.get(quality_level, QualityLevel.MODERATE_RISK)
             
             # Check if query is a ticker or company name
             ticker = query.upper()
@@ -318,14 +330,19 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
             
             # Map quality parameter to QualityLevel
             quality_mapping = {
-                'experimental': QualityLevel.EXPERIMENTAL,
-                'research': QualityLevel.EXPERIMENTAL,  # Default
-                'retail': QualityLevel.RETAIL,
-                'professional': QualityLevel.PROFESSIONAL,
-                'institutional': QualityLevel.INSTITUTIONAL
+                'aggressive': QualityLevel.AGGRESSIVE,
+                'research': QualityLevel.AGGRESSIVE,  # Default for research
+                'high_risk': QualityLevel.HIGH_RISK,
+                'moderate_risk': QualityLevel.MODERATE_RISK,
+                'low_risk': QualityLevel.LOW_RISK,
+                # Legacy mappings for backward compatibility
+                'experimental': QualityLevel.AGGRESSIVE,
+                'retail': QualityLevel.HIGH_RISK,
+                'professional': QualityLevel.MODERATE_RISK,
+                'institutional': QualityLevel.LOW_RISK
             }
             
-            target_quality = quality_mapping.get(quality_param, QualityLevel.EXPERIMENTAL)
+            target_quality = quality_mapping.get(quality_param, QualityLevel.AGGRESSIVE)
             
             # Always include both US and European stocks for best opportunities
             top_stocks = self.scan_top_professional_stocks(10, target_quality, include_europe=True, min_risk_reward=min_risk_reward)
@@ -333,7 +350,7 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
             response = {
                 'stocks': top_stocks,
                 'quality_level': target_quality.value,
-                'scan_method': 'professional' if target_quality != QualityLevel.EXPERIMENTAL else 'basic'
+                'scan_method': 'professional' if target_quality != QualityLevel.AGGRESSIVE else 'basic'
             }
             
             self.send_json_response(response)
@@ -363,10 +380,10 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
                 
                 # Adjust filtering based on quality level
                 meets_standards = False
-                if quality_level == QualityLevel.EXPERIMENTAL:
-                    # Be more permissive for experimental - include any meaningful rating
+                if quality_level == QualityLevel.AGGRESSIVE:
+                    # Be more permissive for aggressive - include any meaningful rating
                     meets_standards = (result.rating in ['BUY', 'RISKY_BUY', 'HOLD'] and 
-                                     result.confidence > 0.45)  # Lower threshold for experimental
+                                     result.confidence > 0.45)  # Lower threshold for aggressive
                 else:
                     # Stricter standards for higher quality levels
                     meets_standards = (result.quality_assurance.quality_level != 'SUBSTANDARD' and 
@@ -437,14 +454,20 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
     def send_json_response(self, data):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
+        # Only allow localhost origins for security
+        origin = self.headers.get('Origin', '')
+        if origin and ('localhost' in origin or '127.0.0.1' in origin):
+            self.send_header('Access-Control-Allow-Origin', origin)
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
     
     def send_error_response(self, code, message):
         self.send_response(code)
         self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
+        # Only allow localhost origins for security
+        origin = self.headers.get('Origin', '')
+        if origin and ('localhost' in origin or '127.0.0.1' in origin):
+            self.send_header('Access-Control-Allow-Origin', origin)
         self.end_headers()
         self.wfile.write(json.dumps({'error': message}).encode())
 

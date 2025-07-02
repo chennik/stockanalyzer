@@ -52,6 +52,29 @@ def fetch_stock_data(ticker: str, period: str = "3mo", interval: str = "1d") -> 
 def validate_ticker(ticker: str) -> bool:
     """Check if ticker is valid and has data available."""
     try:
+        # Input sanitization
+        if not ticker or not isinstance(ticker, str):
+            return False
+        
+        # Remove any whitespace
+        ticker = ticker.strip()
+        
+        # Check length (tickers are typically 1-5 chars, with exchange suffix max 10)
+        if len(ticker) == 0 or len(ticker) > 10:
+            return False
+        
+        # Allow only alphanumeric, dots, and hyphens (for tickers like BRK-B, RHM.DE)
+        import re
+        if not re.match(r'^[A-Za-z0-9.\-]+$', ticker):
+            return False
+        
+        # Prevent common injection patterns
+        forbidden_patterns = ['..', '--', '\\', '/', '<', '>', '|', '&', ';', '$', '`', '"', "'", '\n', '\r', '\0']
+        for pattern in forbidden_patterns:
+            if pattern in ticker:
+                return False
+        
+        # Check with yfinance
         stock = yf.Ticker(ticker.upper())
         hist = stock.history(period="1d")
         return not hist.empty
@@ -518,14 +541,14 @@ def get_top_stocks_for_scanning() -> List[str]:
         'MRNA', 'BNTX', 'GILD', 'REGN', 'VRTX', 'BIIB', 'ILMN', 'AMGN',
         
         # Tech growth stocks (momentum-driven)
-        'SHOP', 'SQ', 'ROKU', 'TWLO', 'OKTA', 'DDOG', 'NET', 'FSLY',
-        'ESTC', 'MDB', 'SPLK', 'WDAY', 'VEEV', 'ZS', 'PANW',
+        'SHOP', 'ROKU', 'TWLO', 'OKTA', 'DDOG', 'NET', 'FSLY',
+        'ESTC', 'MDB', 'WDAY', 'VEEV', 'ZS', 'PANW', 'SMCI', 'AVGO',
         
         # Energy & commodities (volatile, news-sensitive)
-        'XOM', 'CVX', 'SLB', 'HAL', 'OXY', 'DVN', 'EOG', 'PXD',
+        'XOM', 'CVX', 'SLB', 'HAL', 'OXY', 'DVN', 'EOG', 'COP', 'EPD',
         
         # Meme stocks & social media driven
-        'GME', 'AMC', 'BB', 'NOK', 'WISH', 'CLOV', 'SPCE', 'TLRY',
+        'GME', 'AMC', 'BB', 'NOK', 'CLOV', 'SPCE', 'TLRY', 'BBBY', 'APE',
         
         # Chinese stocks (high volatility, accessible in Germany)
         'BABA', 'BIDU', 'JD', 'PDD', 'BILI', 'DIDI', 'NIO', 'XPEV', 'LI',
@@ -542,9 +565,9 @@ def get_top_stocks_for_scanning_with_europe() -> List[str]:
     # Add major European stocks
     european_stocks = [
         # German DAX stocks
-        'SAP.DE', 'SIE.DE', 'ALV.DE', 'MBG.DE', 'BMW.DE', 'BAS.DE', 'BAYN.DE',
+        'SAP.DE', 'SIE.DE', 'ALV.DE', 'BMW.DE', 'BAS.DE', 'BAYN.DE',
         'ADS.DE', 'VNA.DE', 'DBK.DE', 'VOW3.DE', 'IFX.DE', 'HEN3.DE', 'MUV2.DE',
-        'RHM.DE',  # Rheinmetall - defense stock
+        'RHM.DE', 'DTE.DE', 'EON.DE',  # Added more active German stocks
         
         # French CAC 40
         'MC.PA', 'OR.PA', 'SAN.PA', 'TTE.PA', 'AIR.PA', 'BNP.PA', 'ACA.PA',

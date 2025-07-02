@@ -22,11 +22,11 @@ from datetime import datetime
 
 
 class QualityLevel(Enum):
-    """Quality assurance levels for predictions."""
-    INSTITUTIONAL = "institutional"  # 95%+ confidence, strict validation
-    PROFESSIONAL = "professional"   # 85%+ confidence, comprehensive checks
-    RETAIL = "retail"               # 70%+ confidence, basic validation
-    EXPERIMENTAL = "experimental"   # 60%+ confidence, research only
+    """Risk-based analysis levels for predictions."""
+    LOW_RISK = "low_risk"          # 95%+ confidence, strict validation, conservative thresholds
+    MODERATE_RISK = "moderate_risk" # 85%+ confidence, balanced approach
+    HIGH_RISK = "high_risk"        # 70%+ confidence, aggressive thresholds
+    AGGRESSIVE = "aggressive"       # 60%+ confidence, maximum opportunities
 
 
 @dataclass
@@ -74,27 +74,27 @@ class QualityStandardsFramework:
     
     # Industry-standard confidence thresholds (statistically validated)
     CONFIDENCE_THRESHOLDS = {
-        QualityLevel.INSTITUTIONAL: {
-            'BUY': 0.85,      # 85%+ confidence for institutional BUY
-            'SELL': 0.85,     # 85%+ confidence for institutional SELL
+        QualityLevel.LOW_RISK: {
+            'BUY': 0.85,      # 85%+ confidence for low risk BUY
+            'SELL': 0.85,     # 85%+ confidence for low risk SELL
             'HOLD': 0.70,     # 70%+ confidence for HOLD (lower bar)
             'RISKY_BUY': 0.75 # 75%+ confidence for high-risk trades
         },
-        QualityLevel.PROFESSIONAL: {
-            'BUY': 0.65,      # 65%+ confidence for professional BUY (more realistic)
-            'SELL': 0.65,     # 65%+ confidence for professional SELL  
+        QualityLevel.MODERATE_RISK: {
+            'BUY': 0.65,      # 65%+ confidence for moderate risk BUY (more realistic)
+            'SELL': 0.65,     # 65%+ confidence for moderate risk SELL  
             'HOLD': 0.50,     # 50%+ confidence for HOLD
             'RISKY_BUY': 0.55 # 55%+ confidence for high-risk trades
         },
-        QualityLevel.RETAIL: {
-            'BUY': 0.60,      # 60%+ confidence for retail BUY 
-            'SELL': 0.60,     # 60%+ confidence for retail SELL
+        QualityLevel.HIGH_RISK: {
+            'BUY': 0.60,      # 60%+ confidence for high risk BUY 
+            'SELL': 0.60,     # 60%+ confidence for high risk SELL
             'HOLD': 0.45,     # 45%+ confidence for HOLD
             'RISKY_BUY': 0.50 # 50%+ confidence for high-risk trades
         },
-        QualityLevel.EXPERIMENTAL: {
-            'BUY': 0.55,      # 55%+ confidence for experimental BUY
-            'SELL': 0.55,     # 55%+ confidence for experimental SELL
+        QualityLevel.AGGRESSIVE: {
+            'BUY': 0.55,      # 55%+ confidence for aggressive BUY
+            'SELL': 0.55,     # 55%+ confidence for aggressive SELL
             'HOLD': 0.40,     # 40%+ confidence for HOLD
             'RISKY_BUY': 0.45 # 45%+ confidence for high-risk trades
         }
@@ -102,18 +102,18 @@ class QualityStandardsFramework:
     
     # Statistical significance requirements
     P_VALUE_THRESHOLDS = {
-        QualityLevel.INSTITUTIONAL: 0.01,   # p < 0.01 (99% significance)
-        QualityLevel.PROFESSIONAL: 0.05,   # p < 0.05 (95% significance) 
-        QualityLevel.RETAIL: 0.10,         # p < 0.10 (90% significance)
-        QualityLevel.EXPERIMENTAL: 0.20    # p < 0.20 (80% significance)
+        QualityLevel.LOW_RISK: 0.01,       # p < 0.01 (99% significance)
+        QualityLevel.MODERATE_RISK: 0.05,  # p < 0.05 (95% significance) 
+        QualityLevel.HIGH_RISK: 0.10,      # p < 0.10 (90% significance)
+        QualityLevel.AGGRESSIVE: 0.20      # p < 0.20 (80% significance)
     }
     
     # Minimum sample size requirements
     MIN_SAMPLE_SIZES = {
-        QualityLevel.INSTITUTIONAL: 100,   # 100+ data points
-        QualityLevel.PROFESSIONAL: 50,    # 50+ data points
-        QualityLevel.RETAIL: 30,          # 30+ data points (current minimum)
-        QualityLevel.EXPERIMENTAL: 20     # 20+ data points
+        QualityLevel.LOW_RISK: 100,       # 100+ data points
+        QualityLevel.MODERATE_RISK: 50,   # 50+ data points
+        QualityLevel.HIGH_RISK: 30,       # 30+ data points (current minimum)
+        QualityLevel.AGGRESSIVE: 20       # 20+ data points
     }
     
     # Risk management parameters by asset volatility
@@ -135,7 +135,7 @@ class QualityStandardsFramework:
         }
     }
     
-    def __init__(self, target_quality_level: QualityLevel = QualityLevel.PROFESSIONAL):
+    def __init__(self, target_quality_level: QualityLevel = QualityLevel.MODERATE_RISK):
         """
         Initialize quality framework with target quality level.
         
@@ -462,21 +462,21 @@ class QualityStandardsFramework:
         """Determine achieved quality level based on metrics."""
         if (confidence >= 0.85 and p_value <= 0.01 and 
             sample_size >= 100 and meets_confidence):
-            return QualityLevel.INSTITUTIONAL
+            return QualityLevel.LOW_RISK
         elif (confidence >= 0.65 and p_value <= 0.05 and 
               sample_size >= 30 and meets_confidence):
-            return QualityLevel.PROFESSIONAL
+            return QualityLevel.MODERATE_RISK
         elif (confidence >= 0.60 and p_value <= 0.10 and 
               sample_size >= 30 and meets_confidence):
-            return QualityLevel.RETAIL
+            return QualityLevel.HIGH_RISK
         elif (confidence >= 0.55 and p_value <= 0.20 and sample_size >= 20):
-            return QualityLevel.EXPERIMENTAL
+            return QualityLevel.AGGRESSIVE
         else:
-            # If even experimental standards aren't met, but we have some data
+            # If even aggressive standards aren't met, but we have some data
             if sample_size >= 10 and confidence > 0.0:
-                return QualityLevel.EXPERIMENTAL
+                return QualityLevel.AGGRESSIVE
             else:
-                return QualityLevel.EXPERIMENTAL  # Default to experimental rather than fail
+                return QualityLevel.AGGRESSIVE  # Default to aggressive rather than fail
     
     def _ratings_conflict(self, rating1: str, rating2: str) -> bool:
         """Check if two ratings conflict with each other."""
@@ -488,4 +488,4 @@ class QualityStandardsFramework:
 
 
 # Global instance for consistent usage across modules
-quality_framework = QualityStandardsFramework(QualityLevel.PROFESSIONAL)
+quality_framework = QualityStandardsFramework(QualityLevel.MODERATE_RISK)

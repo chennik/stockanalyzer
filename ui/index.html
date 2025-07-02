@@ -353,6 +353,75 @@
             color: #dc3545;
             font-size: 0.8rem;
         }
+        
+        /* Clean Stock Card Styles */
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        .stock-price {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #007bff;
+        }
+        .stock-rating-section {
+            text-align: center;
+            margin: 12px 0;
+        }
+        .stock-forecast-box {
+            background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+            border: 1px solid #d4edda;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 12px 0;
+            text-align: center;
+        }
+        .forecast-header {
+            font-size: 0.85rem;
+            color: #155724;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        .forecast-return {
+            font-size: 1.3rem;
+            font-weight: bold;
+            line-height: 1.2;
+        }
+        .forecast-return.positive { color: #28a745; }
+        .forecast-return.negative { color: #dc3545; }
+        .forecast-percent {
+            font-size: 0.9rem;
+            color: #155724;
+            margin-top: 2px;
+        }
+        .stock-details {
+            font-size: 0.85rem;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 6px 0;
+        }
+        .detail-label {
+            color: #666;
+        }
+        .detail-value {
+            font-weight: 500;
+        }
+        .risk-reward-excellent { color: #28a745; }
+        .risk-reward-good { color: #ffc107; }
+        .risk-reward-fair { color: #fd7e14; }
+        .warning-text {
+            color: #dc3545;
+            font-style: italic;
+            font-size: 0.75rem;
+            text-align: center;
+            margin-top: 8px;
+        }
         .top-stocks-loading {
             text-align: center;
             padding: 20px;
@@ -624,26 +693,26 @@
             </div>
             
             <div class="quality-selector">
-                <span style="font-weight: bold; margin-right: 10px;">🏛️ Analysis Quality:</span>
+                <span style="font-weight: bold; margin-right: 10px;">🎯 Risk Level:</span>
                 
                 <div class="quality-option">
-                    <input type="radio" id="institutional" name="quality" value="institutional">
-                    <label for="institutional">Institutional <span class="quality-badge quality-institutional">95%+</span></label>
+                    <input type="radio" id="low_risk" name="quality" value="low_risk">
+                    <label for="low_risk">🛡️ Low Risk <span class="quality-badge quality-institutional">95%+</span></label>
                 </div>
                 
                 <div class="quality-option">
-                    <input type="radio" id="professional" name="quality" value="professional">
-                    <label for="professional">Professional <span class="quality-badge quality-professional">75%+</span></label>
+                    <input type="radio" id="moderate_risk" name="quality" value="moderate_risk">
+                    <label for="moderate_risk">⚖️ Moderate Risk <span class="quality-badge quality-professional">75%+</span></label>
                 </div>
                 
                 <div class="quality-option">
-                    <input type="radio" id="retail" name="quality" value="retail">
-                    <label for="retail">Retail <span class="quality-badge quality-retail">65%+</span></label>
+                    <input type="radio" id="high_risk" name="quality" value="high_risk">
+                    <label for="high_risk">⚡ High Risk <span class="quality-badge quality-retail">65%+</span></label>
                 </div>
                 
                 <div class="quality-option">
-                    <input type="radio" id="experimental" name="quality" value="experimental" checked>
-                    <label for="experimental">Research <span class="quality-badge quality-experimental">55%+</span></label>
+                    <input type="radio" id="aggressive" name="quality" value="aggressive" checked>
+                    <label for="aggressive">🚀 Aggressive <span class="quality-badge quality-experimental">55%+</span></label>
                 </div>
             </div>
         </form>
@@ -654,37 +723,50 @@
         <div class="top-stocks">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2>🚀 Top 10 Trading Opportunities</h2>
-                <div style="display: flex; gap: 15px; align-items: center;">
+                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 12px; background: #f8f9fa; padding: 8px 16px; border-radius: 6px; border: 1px solid #e9ecef;">
+                        <span>💰 Investment:</span>
+                        <input type="number" id="investmentAmount" min="100" max="100000" step="100" value="1000" 
+                               style="width: 100px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;" 
+                               placeholder="1000">
+                        <span>€</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; background: #f8f9fa; padding: 8px 16px; border-radius: 6px; border: 1px solid #e9ecef;">
+                        <span>⏰ Time Horizon:</span>
+                        <input type="range" id="timeHorizonSlider" min="1" max="14" step="1" value="5" 
+                               style="width: 120px;" oninput="updateTimeHorizonDisplay(this.value)">
+                        <span id="timeHorizonValue" style="font-weight: 600; min-width: 50px;">5 days</span>
+                    </div>
                     <div style="display: flex; align-items: center; gap: 12px; background: #f8f9fa; padding: 8px 16px; border-radius: 6px; border: 1px solid #e9ecef;">
                         <span>📊 Min R:R</span>
                         <input type="range" id="riskRewardSlider" min="1.0" max="2.0" step="0.1" value="1.0" 
                                style="width: 120px;" oninput="updateRiskRewardDisplay(this.value)">
                         <span id="riskRewardValue" style="font-weight: 600; min-width: 40px;">1.0</span>
-                        <button onclick="applyRiskRewardFilter()" style="padding: 4px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">Apply</button>
                     </div>
-                    <button onclick="location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer;">🔄 Refresh Scan</button>
+                    <button onclick="applyTopStocksFilters()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;">🔍 Update Scan</button>
+                    <button onclick="location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer;">🔄 Refresh</button>
                 </div>
             </div>
             
-            <!-- Quality Level Selector for Top Stocks -->
+            <!-- Risk Level Selector for Top Stocks -->
             <div class="quality-selector" style="margin-bottom: 20px;">
-                <label style="font-weight: 600;">Quality Level for Top Stocks:</label>
+                <label style="font-weight: 600;">Risk Level for Top Stocks:</label>
                 <div style="display: flex; gap: 15px;">
                     <label>
-                        <input type="radio" name="topStocksQuality" value="research" checked>
-                        🧪 Research/Experimental (55%+ confidence)
+                        <input type="radio" name="topStocksQuality" value="aggressive" checked>
+                        🚀 Aggressive (55%+ confidence, max opportunities)
                     </label>
                     <label>
-                        <input type="radio" name="topStocksQuality" value="retail">
-                        👤 Retail (60%+ confidence)
+                        <input type="radio" name="topStocksQuality" value="high_risk">
+                        ⚡ High Risk (60%+ confidence, growth focused)
                     </label>
                     <label>
-                        <input type="radio" name="topStocksQuality" value="professional">
-                        💼 Professional (65%+ confidence)
+                        <input type="radio" name="topStocksQuality" value="moderate_risk">
+                        ⚖️ Moderate Risk (65%+ confidence, balanced)
                     </label>
                     <label>
-                        <input type="radio" name="topStocksQuality" value="institutional">
-                        🏛️ Institutional (85%+ confidence)
+                        <input type="radio" name="topStocksQuality" value="low_risk">
+                        🛡️ Low Risk (85%+ confidence, conservative)
                     </label>
                 </div>
             </div>

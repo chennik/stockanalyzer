@@ -42,7 +42,7 @@ class BacktestEngine:
         
         Args:
             ticker: Stock symbol to test
-            days_back: How many days back to test signals
+            days_back: How many days back to test signals 
             hold_days: How many days to hold position after signal
             
         Returns:
@@ -334,9 +334,9 @@ def main():
     
     backtest = BacktestEngine()
     
-    # Run backtests
+    # Run backtests with extended window for statistical significance
     for ticker in test_stocks:
-        backtest.backtest_stock(ticker, days_back=45, hold_days=3)
+        backtest.backtest_stock(ticker, days_back=252, hold_days=3)
     
     # Calculate performance metrics
     metrics = backtest.calculate_performance_metrics()

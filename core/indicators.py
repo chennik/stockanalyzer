@@ -1,5 +1,6 @@
 from typing import List, Tuple
 import pandas as pd
+import numpy as np
 
 def calculate_sma(prices: List[float], period: int) -> float:
     """Calculate Simple Moving Average for the given period."""
@@ -49,30 +50,49 @@ def calculate_rsi(prices: List[float], period: int = 14) -> float:
 
 def calculate_macd(prices: List[float]) -> Tuple[float, float, float]:
     """Calculate MACD (Moving Average Convergence Divergence)."""
-    if len(prices) < 26:
+    if len(prices) < 35:  # Need 26 for MACD + 9 for signal
         return 0.0, 0.0, 0.0
     
-    # Convert to pandas for easier EMA calculation
-    df = pd.DataFrame({'price': prices})
+    # Convert to numpy array for consistent calculations
+    prices_array = np.array(prices)
     
-    # Calculate EMAs
-    ema_12 = df['price'].ewm(span=12, adjust=False).mean()
-    ema_26 = df['price'].ewm(span=26, adjust=False).mean()
+    # Calculate EMAs using the standard formula
+    ema_12 = _calculate_ema(prices_array, 12)
+    ema_26 = _calculate_ema(prices_array, 26)
     
     # MACD line
     macd_line = ema_12 - ema_26
     
-    # Signal line (9-day EMA of MACD)
-    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    # Calculate MACD values for signal line calculation
+    macd_values = []
+    for i in range(26, len(prices_array)):
+        ema12_at_i = _calculate_ema(prices_array[:i+1], 12)
+        ema26_at_i = _calculate_ema(prices_array[:i+1], 26)
+        macd_values.append(ema12_at_i - ema26_at_i)
+    
+    # Signal line (9-period EMA of MACD)
+    if len(macd_values) >= 9:
+        signal_line = _calculate_ema(np.array(macd_values), 9)
+    else:
+        signal_line = macd_line
     
     # MACD histogram
     macd_histogram = macd_line - signal_line
     
-    return (
-        macd_line.iloc[-1],
-        signal_line.iloc[-1],
-        macd_histogram.iloc[-1]
-    )
+    return macd_line, signal_line, macd_histogram
+
+def _calculate_ema(prices: np.array, period: int) -> float:
+    """Calculate Exponential Moving Average using standard formula."""
+    if len(prices) < period:
+        return np.mean(prices)
+    
+    multiplier = 2 / (period + 1)
+    ema = np.mean(prices[:period])  # Start with SMA
+    
+    for price in prices[period:]:
+        ema = (price * multiplier) + (ema * (1 - multiplier))
+    
+    return ema
 
 def calculate_mfi(prices: List[float], volumes: List[float], period: int = 14) -> float:
     """

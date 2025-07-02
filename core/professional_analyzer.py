@@ -40,12 +40,12 @@ class ProfessionalStockAnalyzer:
     5. Providing specific entry/exit criteria with price levels
     """
     
-    def __init__(self, quality_level: QualityLevel = QualityLevel.PROFESSIONAL):
+    def __init__(self, quality_level: QualityLevel = QualityLevel.MODERATE_RISK):
         """
         Initialize professional analyzer with specified quality level.
         
         Args:
-            quality_level: Target quality standard (INSTITUTIONAL, PROFESSIONAL, RETAIL, EXPERIMENTAL)
+            quality_level: Target quality standard (LOW_RISK, MODERATE_RISK, HIGH_RISK, AGGRESSIVE)
         """
         self.quality_framework = QualityStandardsFramework(quality_level)
         self.algo_forecaster = AlgorithmicForecast()
@@ -189,10 +189,10 @@ class ProfessionalStockAnalyzer:
         """Check if analysis meets minimum quality standards for the target quality level."""
         # Check if achieved quality level meets or exceeds the target
         quality_hierarchy = {
-            'experimental': 0,
-            'retail': 1, 
-            'professional': 2,
-            'institutional': 3
+            'aggressive': 0,
+            'high_risk': 1, 
+            'moderate_risk': 2,
+            'low_risk': 3
         }
         
         achieved_level = quality_hierarchy.get(quality_metrics.quality_level.value.lower(), 0)
@@ -389,7 +389,7 @@ class ProfessionalStockAnalyzer:
             price_at_analysis=technical_analysis.price_at_analysis,
             risk_management=RiskManagementData(0, 0.15, 0, 0.02, 1.0, 0.30, 1, 0.10),  # Conservative defaults
             quality_assurance=QualityAssurance(
-                quality_level='SUBSTANDARD',
+                quality_level='INSUFFICIENT_QUALITY',
                 statistical_confidence=quality_metrics.confidence_score,
                 p_value=quality_metrics.p_value,
                 sample_size=quality_metrics.sample_size,
@@ -490,11 +490,11 @@ class ProfessionalStockAnalyzer:
         institutional_boost = institutional_result.get('confidence_boost', 0.0)
         enhanced_confidence += institutional_boost
         
-        # Quality level adjustment - be more aggressive for professional analysis
-        if self.quality_level == QualityLevel.PROFESSIONAL:
-            enhanced_confidence += 0.05  # 5% boost for professional level
-        elif self.quality_level == QualityLevel.INSTITUTIONAL:
-            enhanced_confidence += 0.08  # 8% boost for institutional level
+        # Quality level adjustment - be more aggressive for moderate risk analysis
+        if self.quality_level == QualityLevel.MODERATE_RISK:
+            enhanced_confidence += 0.05  # 5% boost for moderate risk level
+        elif self.quality_level == QualityLevel.LOW_RISK:
+            enhanced_confidence += 0.08  # 8% boost for low risk level
         
         # Ensure confidence stays within reasonable bounds
         return max(0.1, min(0.95, enhanced_confidence))
