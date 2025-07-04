@@ -332,30 +332,32 @@ function displayTopStocks(stocks, qualityLevel, scanMethod, investmentAmount = 1
         const qualityInfo = stock.quality_level;
         const riskScore = stock.risk_score || 0;
         const riskRewardRatio = stock.risk_reward_ratio || 0;
+        const currentPrice = stock.current_price || 0;
         
-        // Calculate forecasted returns in a cleaner way
-        const currentPrice = stock.current_price;
-        const takeProfitPrice = stock.take_profit || currentPrice * 1.05;
-        const stopLossPrice = stock.stop_loss || currentPrice * 0.95;
+        // Use server-calculated projections if available, otherwise fall back to client-side calculation
+        let projectedReturnEUR = stock.expected_return_eur || 0;
+        let projectedReturnPercent = stock.expected_return_percent || 0;
         
-        // Calculate EUR returns
-        const usdToEurRate = 1.08;
-        const investmentUSD = investmentAmount * usdToEurRate;
-        const shares = investmentUSD / currentPrice;
-        
-        // Improved time-based estimation using risk/reward data
-        let projectedReturnEUR = 0;
-        let projectedReturnPercent = 0;
-        
-        if (riskRewardRatio > 0) {
-            // Use actual risk/reward ratio for more accurate forecasting
-            const maxGainUSD = shares * (takeProfitPrice - currentPrice);
-            const maxGainEUR = maxGainUSD / usdToEurRate;
-            // Scale by time horizon and add some probability weighting
-            const timeScaleFactor = Math.min(timeHorizon / 14, 1); // Normalize to 14 days
-            const probabilityWeight = Math.min(stock.confidence * 1.2, 0.8); // Use confidence but cap at 80%
-            projectedReturnEUR = maxGainEUR * timeScaleFactor * probabilityWeight;
-            projectedReturnPercent = (projectedReturnEUR / investmentAmount) * 100;
+        // If server didn't provide calculations, do client-side estimation
+        if (!stock.expected_return_eur) {
+            const takeProfitPrice = stock.take_profit || currentPrice * 1.05;
+            const stopLossPrice = stock.stop_loss || currentPrice * 0.95;
+            
+            // Calculate EUR returns
+            const usdToEurRate = 1.08;
+            const investmentUSD = investmentAmount * usdToEurRate;
+            const shares = investmentUSD / currentPrice;
+            
+            if (riskRewardRatio > 0) {
+                // Use actual risk/reward ratio for more accurate forecasting
+                const maxGainUSD = shares * (takeProfitPrice - currentPrice);
+                const maxGainEUR = maxGainUSD / usdToEurRate;
+                // Scale by time horizon and add some probability weighting
+                const timeScaleFactor = Math.min(timeHorizon / 14, 1); // Normalize to 14 days
+                const probabilityWeight = Math.min(stock.confidence * 1.2, 0.8); // Use confidence but cap at 80%
+                projectedReturnEUR = maxGainEUR * timeScaleFactor * probabilityWeight;
+                projectedReturnPercent = (projectedReturnEUR / investmentAmount) * 100;
+            }
         }
         
         // Clean card layout

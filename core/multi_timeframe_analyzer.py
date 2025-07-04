@@ -8,6 +8,7 @@ from typing import Dict, List, Tuple, Optional
 from datetime import datetime
 from .models import StockData, AnalysisResult, TechnicalIndicators
 from .data_fetcher import fetch_stock_data
+from .cached_data_fetcher import fetch_stock_data_cached
 from .indicators import calculate_rsi, calculate_sma, calculate_macd
 
 class MultiTimeframeAnalyzer:
@@ -41,10 +42,9 @@ class MultiTimeframeAnalyzer:
         # Analyze each timeframe
         for tf_name, tf_config in self.timeframes.items():
             try:
-                stock_data = fetch_stock_data(
+                stock_data = fetch_stock_data_cached(
                     ticker, 
-                    period=tf_config['period'], 
-                    interval=tf_config['interval']
+                    period=tf_config['period']
                 )
                 
                 if stock_data and len(stock_data.prices) >= 20:

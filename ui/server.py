@@ -328,6 +328,10 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
             quality_param = query_params.get('quality', ['research'])[0].lower()
             min_risk_reward = float(query_params.get('min_rr', ['0'])[0])
             
+            # Parse investment amount and time horizon parameters
+            investment_amount = float(query_params.get('investment', ['1000'])[0])
+            time_horizon_days = int(query_params.get('days', ['5'])[0])
+            
             # Map quality parameter to QualityLevel
             quality_mapping = {
                 'aggressive': QualityLevel.AGGRESSIVE,
@@ -345,12 +349,21 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
             target_quality = quality_mapping.get(quality_param, QualityLevel.AGGRESSIVE)
             
             # Always include both US and European stocks for best opportunities
-            top_stocks = self.scan_top_professional_stocks(10, target_quality, include_europe=True, min_risk_reward=min_risk_reward)
+            top_stocks = self.scan_top_professional_stocks(
+                10, 
+                target_quality, 
+                include_europe=True, 
+                min_risk_reward=min_risk_reward,
+                investment_amount=investment_amount,
+                time_horizon_days=time_horizon_days
+            )
             
             response = {
                 'stocks': top_stocks,
                 'quality_level': target_quality.value,
-                'scan_method': 'professional' if target_quality != QualityLevel.AGGRESSIVE else 'basic'
+                'scan_method': 'professional' if target_quality != QualityLevel.AGGRESSIVE else 'basic',
+                'investment_amount': investment_amount,
+                'time_horizon_days': time_horizon_days
             }
             
             self.send_json_response(response)
@@ -358,7 +371,7 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_error_response(500, str(e))
     
-    def scan_top_professional_stocks(self, max_stocks: int, quality_level: QualityLevel, include_europe: bool = False, min_risk_reward: float = 0) -> List[Dict]:
+    def scan_top_professional_stocks(self, max_stocks: int, quality_level: QualityLevel, include_europe: bool = False, min_risk_reward: float = 0, investment_amount: float = 1000, time_horizon_days: int = 5) -> List[Dict]:
         """Scan for top stocks using professional analysis with quality filtering."""
         import concurrent.futures
         from core.analyzer import get_top_stocks_for_scanning
@@ -367,28 +380,52 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
         analyzer = ProfessionalStockAnalyzer(quality_level)
         opportunities = []
         
-        # Get candidate stocks
+        # Get candidate stocks - reduced to avoid rate limits
         if include_europe:
-            tickers = get_top_stocks_for_scanning_with_europe()[:50]  # More stocks when including Europe
+            tickers = get_top_stocks_for_scanning_with_europe()[:20]  # Reduced from 50
         else:
-            tickers = get_top_stocks_for_scanning()[:30]  # Scan fewer for professional analysis
+            tickers = get_top_stocks_for_scanning()[:15]  # Reduced from 30
         
         def analyze_professional_stock(ticker: str) -> Dict:
             """Analyze stock with professional standards."""
             try:
                 result = analyzer.analyze_stock_professional(ticker)
                 
-                # Adjust filtering based on quality level
+                # If we got insufficient data result, try basic analysis as fallback
+                if result.confidence == 0.0 and result.quality_assurance.quality_level == 'INSUFFICIENT_DATA':
+                    print(f"Professional analysis failed for {ticker}, trying basic analysis...")
+                    try:
+                        # Use basic enhanced analysis as fallback
+                        basic_result = analyze_with_enhanced_accuracy(ticker)
+                        if basic_result:
+                            # Convert basic result to professional format
+                            result.rating = basic_result.rating
+                            result.confidence = basic_result.confidence
+                            result.price_at_analysis = basic_result.technical_indicators.sma_20  # Approximate
+                            result.reasoning = basic_result.reasoning
+                            # Keep original quality level from professional analyzer
+                    except Exception as e:
+                        print(f"Basic analysis also failed for {ticker}: {e}")
+                
+                # Define minimum confidence thresholds for each quality level
+                confidence_thresholds = {
+                    QualityLevel.AGGRESSIVE: 0.55,    # 55%+ confidence
+                    QualityLevel.HIGH_RISK: 0.60,     # 60%+ confidence 
+                    QualityLevel.MODERATE_RISK: 0.65, # 65%+ confidence
+                    QualityLevel.LOW_RISK: 0.85       # 85%+ confidence
+                }
+                
+                min_confidence = confidence_thresholds.get(quality_level, 0.65)
+                
+                # Check if stock meets the confidence threshold for the selected risk level
                 meets_standards = False
-                if quality_level == QualityLevel.AGGRESSIVE:
-                    # Be more permissive for aggressive - include any meaningful rating
-                    meets_standards = (result.rating in ['BUY', 'RISKY_BUY', 'HOLD'] and 
-                                     result.confidence > 0.45)  # Lower threshold for aggressive
-                else:
-                    # Stricter standards for higher quality levels
-                    meets_standards = (result.quality_assurance.quality_level != 'SUBSTANDARD' and 
-                                     result.rating in ['BUY', 'RISKY_BUY'] and 
-                                     result.confidence > 0.0)
+                if result.confidence >= min_confidence:
+                    if quality_level == QualityLevel.AGGRESSIVE:
+                        # Include BUY, RISKY_BUY, and HOLD for aggressive
+                        meets_standards = result.rating in ['BUY', 'RISKY_BUY', 'HOLD']
+                    else:
+                        # Only BUY and RISKY_BUY for other risk levels
+                        meets_standards = result.rating in ['BUY', 'RISKY_BUY']
                 
                 if meets_standards:
                     # Calculate risk/reward ratio
@@ -400,25 +437,58 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
                     potential_gain = abs(take_profit - entry_price)
                     risk_reward_ratio = potential_gain / potential_loss if potential_loss > 0 else 0
                     
+                    # Calculate time-adjusted expected returns
+                    usd_to_eur_rate = 1.08
+                    investment_usd = investment_amount * usd_to_eur_rate
+                    shares = investment_usd / entry_price
+                    
+                    # Calculate potential EUR returns
+                    max_gain_usd = shares * (take_profit - entry_price)
+                    max_gain_eur = max_gain_usd / usd_to_eur_rate
+                    max_loss_usd = shares * (entry_price - stop_loss)
+                    max_loss_eur = max_loss_usd / usd_to_eur_rate
+                    
+                    # Time-adjusted expected return calculation
+                    # Assume target is typically reached in 14 days
+                    base_time_horizon = 14
+                    time_scale_factor = min(time_horizon_days / base_time_horizon, 1.0)
+                    
+                    # Probability weighting based on confidence and quality
+                    probability_weight = result.confidence
+                    if result.rating == 'RISKY_BUY':
+                        probability_weight *= 0.8  # Reduce probability for risky trades
+                    
+                    # Calculate expected return
+                    expected_return_eur = max_gain_eur * time_scale_factor * probability_weight
+                    expected_return_percent = (expected_return_eur / investment_amount) * 100
+                    
                     return {
                         'ticker': ticker,
                         'rating': result.rating,
                         'confidence': round(result.confidence, 3),
-                        'quality_level': result.quality_assurance.quality_level,
+                        'quality_level': quality_level.value.upper(),
                         'current_price': result.price_at_analysis,
                         'reasoning': result.reasoning[:2],  # First 2 reasons
                         'risk_score': result.quality_assurance.risk_score,
                         'risk_reward_ratio': round(risk_reward_ratio, 2),
                         'entry_price': round(entry_price, 2),
                         'stop_loss': round(stop_loss, 2),
-                        'take_profit': round(take_profit, 2)
+                        'take_profit': round(take_profit, 2),
+                        # New fields for time-adjusted calculations
+                        'expected_return_eur': round(expected_return_eur, 2),
+                        'expected_return_percent': round(expected_return_percent, 1),
+                        'max_gain_eur': round(max_gain_eur, 2),
+                        'max_loss_eur': round(max_loss_eur, 2),
+                        'time_horizon_days': time_horizon_days,
+                        'investment_amount': investment_amount
                     }
             except Exception as e:
                 print(f"Error analyzing {ticker}: {e}")
             return None
         
-        # Parallel analysis
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        # Parallel analysis - reduced workers to avoid rate limits
+        print(f"\nScanning {len(tickers)} stocks for {quality_level.value} opportunities...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             futures = [executor.submit(analyze_professional_stock, ticker) for ticker in tickers]
             
             for future in concurrent.futures.as_completed(futures):
@@ -426,18 +496,20 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
                 if result:
                     opportunities.append(result)
         
+        print(f"\nFound {len(opportunities)} opportunities out of {len(tickers)} stocks scanned")
+        
         # Apply risk/reward filter if specified
         if min_risk_reward > 0:
             # Filter for stocks meeting minimum risk/reward threshold
             filtered_opportunities = [stock for stock in opportunities if stock.get('risk_reward_ratio', 0) >= min_risk_reward]
             
-            # Sort by risk/reward ratio (best first)
-            filtered_opportunities.sort(key=lambda x: x['risk_reward_ratio'], reverse=True)
+            # Sort by expected return (best first)
+            filtered_opportunities.sort(key=lambda x: x.get('expected_return_eur', 0), reverse=True)
             
-            # If not enough stocks meet the criteria, add best confidence stocks
+            # If not enough stocks meet the criteria, add best expected return stocks
             if len(filtered_opportunities) < max_stocks:
                 remaining = [stock for stock in opportunities if stock not in filtered_opportunities]
-                remaining.sort(key=lambda x: x['confidence'], reverse=True)
+                remaining.sort(key=lambda x: x.get('expected_return_eur', 0), reverse=True)
                 
                 # Add note to these stocks that they don't meet R:R criteria
                 for stock in remaining[:max_stocks - len(filtered_opportunities)]:
@@ -447,8 +519,8 @@ class StockAnalyzerHandler(SimpleHTTPRequestHandler):
             
             return filtered_opportunities[:max_stocks]
         else:
-            # Default: sort by confidence
-            opportunities.sort(key=lambda x: x['confidence'], reverse=True)
+            # Default: sort by expected return EUR
+            opportunities.sort(key=lambda x: x.get('expected_return_eur', 0), reverse=True)
             return opportunities[:max_stocks]
     
     def send_json_response(self, data):

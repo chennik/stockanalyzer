@@ -24,6 +24,7 @@ from .analyzer import analyze_technical
 from .algo_forecast import AlgorithmicForecast
 from .news_sentiment_analyzer import NewsSentimentForecaster
 from .data_fetcher import fetch_stock_data
+from .cached_data_fetcher import fetch_stock_data_cached
 from .multi_timeframe_analyzer import MultiTimeframeAnalyzer
 from .institutional_indicators import InstitutionalIndicators
 
@@ -73,7 +74,8 @@ class ProfessionalStockAnalyzer:
         """
         try:
             # Fetch extended historical data for better statistical validation
-            stock_data = fetch_stock_data(ticker, period="12mo")
+            # Use cached fetcher to handle rate limits
+            stock_data = fetch_stock_data_cached(ticker, period="12mo")
             if not stock_data or len(stock_data.prices) < 30:
                 return self._create_insufficient_data_result(ticker)
             
