@@ -1,0 +1,61 @@
+
+🔍 STOCK FORECASTER VALIDATION REPORT
+=====================================
+
+This report validates our analysis against real historical data to ensure
+our ratings are based on solid analytical foundations, not hallucinations.
+
+METHODOLOGY:
+- Tested signals on historical data using sliding window approach
+- Simulated real-world trading: analysis → wait → measure actual results
+- Measured both direction accuracy and magnitude of returns
+
+
+BUY SIGNALS - ⚠️ NEEDS REVIEW
+=======================
+Total Signals Tested: 298
+Direction Accuracy: 57.7%
+Average Return: +0.27%
+Best Trade: +17.29%
+Worst Trade: -20.24%
+Volatility (Std Dev): 4.44%
+Profitable Trades: 172/298 (57.7%)
+
+ANALYSIS:
+Needs improvement. BUY threshold may be too aggressive.
+
+SELL SIGNALS - ⚠️ NEEDS REVIEW
+========================
+Total Signals Tested: 50
+Direction Accuracy: 52.0%
+Average Return: +1.83%
+Best Trade: +23.85%
+Worst Trade: -14.86%
+Volatility (Std Dev): 9.05%
+Profitable Trades: 24/50 (48.0%)
+
+ANALYSIS:
+SELL criteria may need tightening to better identify bearish conditions.
+
+HOLD SIGNALS - ⚠️ NEEDS REVIEW
+========================
+Total Signals Tested: 940
+Direction Accuracy: 46.5%
+Average Return: +0.23%
+Best Trade: +37.97%
+Worst Trade: -20.74%
+Volatility (Std Dev): 5.87%
+Profitable Trades: 487/940 (51.8%)
+
+ANALYSIS:
+Correctly identifies sideways markets and neutral conditions.
+
+
+OVERALL ASSESSMENT: 🟠 FAIR
+========================================
+Overall directional accuracy: 49.3% across 1288 historical signals
+
+CONFIDENCE LEVEL: 3/5
+REAL-WORLD VALIDITY: MODERATE
+
+🎯 CONCLUSION: Analysis system requires calibration improvements
